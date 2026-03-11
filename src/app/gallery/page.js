@@ -17,16 +17,19 @@ function safeFileName(name, index) {
   return `${index + 1}-${stem}${ext}`;
 }
 
-/** Use Share API to save images to device photos (iOS Photos, Android Gallery). Returns true if shared. */
-async function shareImagesAsFiles(blobs, fileNames) {
-  if (!navigator.share || !navigator.canShare) return false;
-  const files = blobs.map((blob, i) => new File([blob], fileNames[i] || `photo-${i + 1}.jpg`, { type: blob.type || "image/jpeg" }));
-  if (!navigator.canShare({ files })) return false;
-  await navigator.share({
-    files,
-    title: "Wedding photos",
-    text: "Photos from the wedding",
-  });
+/** Build File[] for Share API. Share must be called from a user gesture, so we prepare files first. */
+function blobsToFiles(blobs, fileNames) {
+  return blobs.map((blob, i) =>
+    new File([blob], fileNames[i] || `photo-${i + 1}.jpg`, { type: blob.type || "image/jpeg" })
+  );
+}
+
+/** Call Share API (must run directly from user click so the share sheet appears). */
+async function openShareSheet(files) {
+  if (!navigator.share || !files.length) return false;
+  const shareData = { files, title: "Wedding photos", text: "Photos from the wedding" };
+  if (navigator.canShare && !navigator.canShare(shareData)) return false;
+  await navigator.share(shareData);
   return true;
 }
 
@@ -39,6 +42,8 @@ export default function GalleryPage() {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  /** On mobile: after "Save Photos" we fetch and store files here; second tap opens share sheet (required for iOS/Android). */
+  const [shareReadyFiles, setShareReadyFiles] = useState(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
@@ -62,22 +67,29 @@ export default function GalleryPage() {
   const hasMore = photos.length > displayCount;
   const loadMore = () => setDisplayCount((c) => c + BATCH_SIZE);
 
-  /** Download single photo (blob download so it actually downloads, not open in tab). */
+  /** Single photo: on mobile use Share API so user gets "Save to Photos"; on desktop blob download. */
   const downloadPhoto = useCallback(async (photo) => {
     try {
       const res = await fetch(photo.fullUrl, { mode: "cors" });
       if (!res.ok) return;
       const blob = await res.blob();
+      const fileName = photo.fileName || "wedding-photo.jpg";
+      if (isMobile && navigator.share) {
+        const files = blobsToFiles([blob], [fileName]);
+        if (navigator.canShare && !navigator.canShare({ files })) throw new Error("Share not supported");
+        await navigator.share({ files, title: "Wedding photo" });
+        return;
+      }
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = photo.fileName || "wedding-photo.jpg";
+      link.download = fileName;
       link.click();
       URL.revokeObjectURL(url);
     } catch {
       window.open(photo.fullUrl, "_blank");
     }
-  }, []);
+  }, [isMobile]);
 
   const toggleSelect = useCallback((photoId) => {
     setSelectedIds((prev) => {
@@ -88,13 +100,24 @@ export default function GalleryPage() {
     });
   }, []);
 
-  /** Save/download selected photos. On mobile: Share API so user can save to Photos/Gallery; else zip download. */
+  /** On mobile, share sheet must open from a user tap. Second tap opens share (first tap prepared the files). */
+  const openSavePhotosSheet = useCallback(async () => {
+    if (!shareReadyFiles?.length) return;
+    setDownloadError(null);
+    try {
+      const ok = await openShareSheet(shareReadyFiles);
+      if (ok) setShareReadyFiles(null);
+    } catch {
+      setShareReadyFiles(null);
+    }
+  }, [shareReadyFiles]);
+
+  /** Save/download selected. On mobile: first tap = fetch files; then button becomes "Tap to save" and second tap opens share sheet. */
   const downloadSelected = useCallback(async () => {
     const selected = visiblePhotos.filter((p) => selectedIds.has(p.id));
     if (selected.length === 0) return;
     setDownloadError(null);
     setDownloading(true);
-    setSelectedIds(new Set());
 
     try {
       const blobs = [];
@@ -108,22 +131,20 @@ export default function GalleryPage() {
         fileNames.push(safeFileName(photo.fileName || "photo.jpg", i));
       }
 
-      if (isMobile && blobs.length > 0) {
-        try {
-          const shared = await shareImagesAsFiles(blobs, fileNames);
-          if (shared) {
-            setDownloading(false);
-            return;
-          }
-        } catch {
-          // Share cancelled or failed, fall through to zip
-        }
+      const files = blobsToFiles(blobs, fileNames);
+      const canShare = isMobile && navigator.share && (!navigator.canShare || navigator.canShare({ files }));
+
+      if (canShare) {
+        setShareReadyFiles(files);
+        setSelectedIds(new Set());
+        setDownloading(false);
+        return;
       }
 
+      setSelectedIds(new Set());
       const zip = new JSZip();
       const folder = zip.folder(ZIP_FOLDER_NAME);
       blobs.forEach((blob, i) => folder.file(fileNames[i], blob));
-
       const zipBlob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(zipBlob);
       const link = document.createElement("a");
@@ -220,23 +241,33 @@ export default function GalleryPage() {
           </>
         )}
 
-        {selectedCount > 0 && (
+        {(selectedCount > 0 || (shareReadyFiles?.length ?? 0) > 0) && (
           <div className="gallery-float-download">
             {downloadError && (
               <p className="gallery-float-download__error">{downloadError}</p>
             )}
-            <button
-              type="button"
-              onClick={downloadSelected}
-              className="gallery-float-download__btn"
-              disabled={downloading}
-            >
-              {downloading
-                ? (isMobile ? "Preparing…" : "Preparing download…")
-                : isMobile
-                  ? "Save Photos"
-                  : `Download ${selectedCount} photo${selectedCount !== 1 ? "s" : ""}`}
-            </button>
+            {shareReadyFiles?.length ? (
+              <button
+                type="button"
+                onClick={openSavePhotosSheet}
+                className="gallery-float-download__btn"
+              >
+                Tap to save
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={downloadSelected}
+                className="gallery-float-download__btn"
+                disabled={downloading}
+              >
+                {downloading
+                  ? (isMobile ? "Preparing…" : "Preparing download…")
+                  : isMobile
+                    ? "Save Photos"
+                    : `Download ${selectedCount} photo${selectedCount !== 1 ? "s" : ""}`}
+              </button>
+            )}
           </div>
         )}
       </div>
