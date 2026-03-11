@@ -7,6 +7,33 @@ import { storage } from "@/lib/firebase";
 
 const UPLOADS_PREFIX = "uploads/";
 
+/** Same confetti as gallery success – loads canvas-confetti on client. */
+function fireUploadSuccessConfetti() {
+  if (typeof window === "undefined") return;
+  import("canvas-confetti").then(({ default: confetti }) => {
+    const duration = 2000;
+    const end = Date.now() + duration;
+    const colors = ["#E8D0F3", "#c9a0dc", "#2C2C34", "#1DB954"];
+    (function frame() {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors,
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors,
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+  });
+}
+
 export default function UploadPage() {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -73,6 +100,7 @@ export default function UploadPage() {
     setUploading(false);
     setDone(true);
     setFiles([]);
+    fireUploadSuccessConfetti();
   }, [files]);
 
   const count = files.length;

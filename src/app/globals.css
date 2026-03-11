@@ -358,18 +358,52 @@ img {
 }
 
 .upload-progress__bar {
-  height: 6px;
+  height: 8px;
   background: var(--border);
   border-radius: var(--radius-pill);
   overflow: hidden;
   margin-bottom: 10px;
+  position: relative;
+}
+
+.upload-progress__bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: upload-progress-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+}
+
+@keyframes upload-progress-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .upload-progress__fill {
   height: 100%;
-  background: var(--lavender-deep);
+  background: linear-gradient(
+    90deg,
+    var(--lavender-deep) 0%,
+    var(--lavender) 50%,
+    var(--lavender-deep) 100%
+  );
+  background-size: 200% 100%;
   border-radius: var(--radius-pill);
-  transition: width 0.3s ease;
+  transition: width 0.35s ease-out;
+  animation: upload-progress-fill-pulse 2s ease-in-out infinite;
+}
+
+@keyframes upload-progress-fill-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.9; }
 }
 
 .upload-progress__text {
@@ -514,7 +548,8 @@ img {
 
 .gallery-card__img {
   object-fit: cover;
-  image-orientation: from-image;
+  /* Don't apply EXIF orientation – images from Storage are already vertical */
+  image-orientation: none;
 }
 
 /* Download button – top right of each card */

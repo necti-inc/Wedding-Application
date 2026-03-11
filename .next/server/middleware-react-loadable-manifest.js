@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST='{"app/gallery/page.js -> canvas-confetti":{"id":9235,"files":["static/chunks/235.ec7c8dde809488be.js"]}}';
+self.__REACT_LOADABLE_MANIFEST="{\"app/gallery/page.js -> canvas-confetti\":{\"id\":\"app/gallery/page.js -> canvas-confetti\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_canvas-confetti_dist_confetti_module_mjs.js\"]},\"app/upload/page.js -> canvas-confetti\":{\"id\":\"app/upload/page.js -> canvas-confetti\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_canvas-confetti_dist_confetti_module_mjs.js\"]}}"

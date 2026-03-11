@@ -15,6 +15,20 @@ function exifDateNow() {
   return `${y}:${m}:${day} ${h}:${min}:${s}`;
 }
 
+/** CORS headers so agents/tools that run from another origin can still fetch. */
+function corsHeaders(init = {}) {
+  return {
+    ...init,
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders() });
+}
+
 /**
  * Proxy image requests to avoid CORS on mobile (fetch from client to same-origin API).
  * Only allows Firebase Storage URLs.
@@ -24,7 +38,7 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const url = searchParams.get("url");
   if (!url || typeof url !== "string") {
-    return NextResponse.json({ error: "Missing url" }, { status: 400 });
+    return NextResponse.json({ error: "Missing url" }, { status: 400, headers: corsHeaders() });
   }
   let parsed;
   try {
@@ -33,13 +47,13 @@ export async function GET(request) {
     return NextResponse.json({ error: "Invalid url" }, { status: 400 });
   }
   if (parsed.origin !== ALLOWED_ORIGIN) {
-    return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+    return NextResponse.json({ error: "URL not allowed" }, { status: 400, headers: corsHeaders() });
   }
 
   try {
     const res = await fetch(url, { cache: "force-cache" });
     if (!res.ok) {
-      return NextResponse.json({ error: "Upstream error" }, { status: res.status });
+      return NextResponse.json({ error: "Upstream error" }, { status: res.status, headers: corsHeaders() });
     }
     const contentType = res.headers.get("content-type") || "image/jpeg";
     const inputBuffer = Buffer.from(await res.arrayBuffer());
@@ -59,23 +73,23 @@ export async function GET(request) {
         .toBuffer();
       return new NextResponse(rotated, {
         status: 200,
-        headers: {
+        headers: corsHeaders({
           "Content-Type": "image/jpeg",
           "Cache-Control": "public, max-age=86400",
           "Last-Modified": new Date().toUTCString(),
-        },
+        }),
       });
     }
 
     return new NextResponse(inputBuffer, {
       status: 200,
-      headers: {
+      headers: corsHeaders({
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400",
-      },
+      }),
     });
   } catch (err) {
     console.error("proxy-image error", err);
-    return NextResponse.json({ error: "Fetch failed" }, { status: 502 });
+    return NextResponse.json({ error: "Fetch failed" }, { status: 502, headers: corsHeaders() });
   }
 }

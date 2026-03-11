@@ -35,6 +35,8 @@ function fireSuccessConfetti() {
 
 const BATCH_SIZE = 48;
 const ZIP_FOLDER_NAME = "wedding-photo-downloads";
+const DOWNLOAD_FETCH_RETRIES = 2;
+const DOWNLOAD_FETCH_CONCURRENCY = 3;
 
 /** Safe filename for inside zip (no path separators). */
 function safeFileName(name, index) {
@@ -60,13 +62,60 @@ async function openShareSheet(files) {
   return true;
 }
 
-/** Fetch image URL via same-origin proxy to avoid CORS (e.g. on mobile). */
+/** Fetch with retries and timeout (handles proxy cold start and transient failures). */
+async function fetchWithRetries(url, retries = DOWNLOAD_FETCH_RETRIES) {
+  const timeoutMs = 30000; // allow proxy cold start (e.g. Vercel serverless)
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.blob();
+    } catch (err) {
+      clearTimeout(timeoutId);
+      lastErr = err;
+      if (attempt < retries) await new Promise((r) => setTimeout(r, 800));
+    }
+  }
+  throw lastErr;
+}
+
+/** Run async tasks with a concurrency limit; returns results in same order as tasks. */
+async function runWithConcurrency(tasks, limit) {
+  const results = new Array(tasks.length);
+  const executing = [];
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
+    const p = Promise.resolve()
+      .then(() => task())
+      .then((value) => {
+        results[i] = value;
+        return value;
+      });
+    const done = p.then(() => {
+      executing.splice(executing.indexOf(done), 1);
+    });
+    executing.push(done);
+    if (executing.length >= limit) await Promise.race(executing);
+  }
+  await Promise.all(executing);
+  return results;
+}
+
+/** Same-origin proxy URL for Firebase images (rotation + EXIF date). Use absolute URL so agents/iframes resolve correctly. */
 function getImageFetchUrl(fullUrl) {
-  if (typeof window === "undefined") return fullUrl;
+  if (!fullUrl) return fullUrl;
   try {
     const u = new URL(fullUrl);
     if (u.origin === "https://firebasestorage.googleapis.com") {
-      return `/api/proxy-image?url=${encodeURIComponent(fullUrl)}`;
+      const path = `/api/proxy-image?url=${encodeURIComponent(fullUrl)}`;
+      if (typeof window !== "undefined" && window.location?.origin) {
+        return `${window.location.origin}${path}`;
+      }
+      return path;
     }
   } catch (_) {}
   return fullUrl;
@@ -176,8 +225,11 @@ export default function GalleryPage() {
             : `${count} photos saved to your photos`
         );
       }
-    } catch {
+    } catch (err) {
       setShareReadyFiles(null);
+      if (err?.name !== "AbortError") {
+        setDownloadError("Save was cancelled or couldn’t open. Try again.");
+      }
     }
   }, [shareReadyFiles, showSuccess]);
 
@@ -189,17 +241,17 @@ export default function GalleryPage() {
     setDownloading(true);
 
     try {
-      const blobs = [];
-      const fileNames = [];
-      for (let i = 0; i < selected.length; i++) {
-        const photo = selected[i];
+      const total = selected.length;
+      const fetchTasks = selected.map((photo, i) => async () => {
         const fetchUrl = getImageFetchUrl(photo.fullUrl);
-        const res = await fetch(fetchUrl);
-        if (!res.ok) throw new Error(`Could not load photo ${i + 1}`);
-        const blob = await res.blob();
-        blobs.push(blob);
-        fileNames.push(safeFileName(photo.fileName || "photo.jpg", i));
-      }
+        try {
+          return await fetchWithRetries(fetchUrl);
+        } catch {
+          throw new Error(`Could not load photo ${i + 1} of ${total}`);
+        }
+      });
+      const blobs = await runWithConcurrency(fetchTasks, DOWNLOAD_FETCH_CONCURRENCY);
+      const fileNames = selected.map((p, i) => safeFileName(p.fileName || "photo.jpg", i));
 
       const files = blobsToFiles(blobs, fileNames);
       const canShare = isMobile && navigator.share && (!navigator.canShare || navigator.canShare({ files }));
@@ -229,8 +281,8 @@ export default function GalleryPage() {
     } catch (err) {
       const msg = err.message || "";
       setDownloadError(
-        /load failed|failed to fetch|cors|network/i.test(msg)
-          ? "Couldn’t load photos. Check your connection and try again."
+        /load failed|failed to fetch|cors|network|http 502/i.test(msg)
+          ? msg.includes("photo ") ? msg + " Try again or select fewer photos." : "Couldn’t load photos. Check your connection and try again."
           : msg || "Something went wrong. Try again."
       );
     } finally {
@@ -282,6 +334,7 @@ export default function GalleryPage() {
                       fill
                       sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 200px"
                       className="gallery-card__img"
+                      unoptimized
                     />
                     <button
                       type="button"
