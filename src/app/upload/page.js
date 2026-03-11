@@ -6,6 +6,8 @@ import { ref, uploadBytesResumable } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 
 const UPLOADS_PREFIX = "uploads/";
+/** Number of files uploading at once; balances speed vs browser/network limits. */
+const UPLOAD_CONCURRENCY = 8;
 
 /** Same confetti as gallery success – loads canvas-confetti on client. */
 function fireUploadSuccessConfetti() {
@@ -55,46 +57,64 @@ export default function UploadPage() {
     setDone(false);
   }, []);
 
+  /** Run up to `limit` uploads at a time; when one finishes, start the next. */
   const uploadAll = useCallback(async () => {
     if (files.length === 0) return;
     setUploading(true);
     setError(null);
     setProgress({ current: 0, total: files.length });
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const ext = (file.name.match(/\.(jpe?g|png|gif|webp)$/i) || [".jpg"])[1]?.toLowerCase() || "jpg";
-      const path = `${UPLOADS_PREFIX}${Date.now()}-${i}.${ext}`;
-      const storageRef = ref(storage, path);
+    const batchId = Date.now();
+    const total = files.length;
+    let completed = 0;
 
-      try {
-        await new Promise((resolve, reject) => {
-          const task = uploadBytesResumable(storageRef, file, {
-            contentType: file.type,
-          });
-          task.on(
-            "state_changed",
-            () => {},
-            reject,
-            () => {
-              setProgress((p) => ({ ...p, current: i + 1 }));
-              resolve();
-            }
-          );
-        });
-      } catch (err) {
-        const msg = err.message || "Upload failed";
-        const isCorsOrNetwork =
-          /cors|failed to fetch|network|load failed|unable to fetch/i.test(msg) ||
-          (err.code && String(err.code).toLowerCase().includes("storage"));
-        setError(
-          isCorsOrNetwork
-            ? "Upload couldn’t complete. Check your connection or try again later."
-            : "Something went wrong. Try again."
+    const uploadOne = (file, i) => {
+      const ext = (file.name.match(/\.(jpe?g|png|gif|webp)$/i) || [".jpg"])[1]?.toLowerCase() || "jpg";
+      const path = `${UPLOADS_PREFIX}${batchId}-${i}.${ext}`;
+      const storageRef = ref(storage, path);
+      return new Promise((resolve, reject) => {
+        const task = uploadBytesResumable(storageRef, file, { contentType: file.type });
+        task.on(
+          "state_changed",
+          () => {},
+          reject,
+          () => {
+            completed += 1;
+            setProgress({ current: completed, total });
+            resolve();
+          }
         );
-        setUploading(false);
-        return;
+      });
+    };
+
+    const runWithConcurrency = async (tasks, limit) => {
+      const executing = [];
+      for (const task of tasks) {
+        const p = Promise.resolve().then(task);
+        const done = p.then(() => {
+          executing.splice(executing.indexOf(done), 1);
+        });
+        executing.push(done);
+        if (executing.length >= limit) await Promise.race(executing);
       }
+      await Promise.all(executing);
+    };
+
+    try {
+      const tasks = files.map((file, i) => () => uploadOne(file, i));
+      await runWithConcurrency(tasks, UPLOAD_CONCURRENCY);
+    } catch (err) {
+      const msg = err.message || "Upload failed";
+      const isCorsOrNetwork =
+        /cors|failed to fetch|network|load failed|unable to fetch/i.test(msg) ||
+        (err.code && String(err.code).toLowerCase().includes("storage"));
+      setError(
+        isCorsOrNetwork
+          ? "Upload couldn’t complete. Check your connection or try again later."
+          : "Something went wrong. Try again."
+      );
+      setUploading(false);
+      return;
     }
 
     setUploading(false);
@@ -147,13 +167,14 @@ export default function UploadPage() {
               </span>
             </label>
 
-            {count > 0 && !uploading && (
+            {count > 0 && (
               <div className="upload-actions">
                 <button
                   type="button"
                   onClick={clearFiles}
                   className="upload-actions__change"
                   aria-label="Clear selection"
+                  disabled={uploading}
                 >
                   Change selection
                 </button>
@@ -161,6 +182,7 @@ export default function UploadPage() {
                   type="button"
                   onClick={uploadAll}
                   className="upload-actions__submit"
+                  disabled={uploading}
                 >
                   <span>Upload to gallery</span>
                   <span className="upload-actions__arrow" aria-hidden>→</span>
@@ -169,14 +191,24 @@ export default function UploadPage() {
             )}
 
             {uploading && (
-              <div className="upload-progress">
-                <div className="upload-progress__bar">
+              <div className="upload-progress" role="region" aria-label="Upload progress">
+                <div
+                  className="upload-progress__bar"
+                  role="progressbar"
+                  aria-valuenow={progress.current}
+                  aria-valuemin={0}
+                  aria-valuemax={progress.total}
+                  aria-valuetext={`Uploading ${progress.current} of ${progress.total}`}
+                >
                   <div
                     className="upload-progress__fill"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
                 <p className="upload-progress__text">
+                  <span className="upload-progress__spinner" aria-hidden>
+                    <span className="loading-spinner loading-spinner--sm" />
+                  </span>
                   Uploading {progress.current} of {progress.total}…
                 </p>
               </div>
@@ -184,7 +216,14 @@ export default function UploadPage() {
 
             {error && (
               <div className="upload-message upload-message--error">
-                {error}
+                <p className="upload-message__text">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="upload-message__retry"
+                >
+                  Try again
+                </button>
               </div>
             )}
           </>

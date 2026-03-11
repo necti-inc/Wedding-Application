@@ -128,6 +128,7 @@ export default function GalleryPage() {
   const [error, setError] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [downloading, setDownloading] = useState(false);
+  const [downloadingPhotoId, setDownloadingPhotoId] = useState(null);
   const [downloadError, setDownloadError] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   /** On mobile: after "Save Photos" we fetch and store files here; second tap opens share sheet (required for iOS/Android). */
@@ -160,12 +161,18 @@ export default function GalleryPage() {
     }, 4000);
   }, []);
 
-  useEffect(() => {
+  const loadPhotos = useCallback(() => {
+    setLoading(true);
+    setError(null);
     fetchListPhotos()
       .then((list) => setPhotos(list))
       .catch((err) => setError(err.message || "Could not load photos"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadPhotos();
+  }, [loadPhotos]);
 
   const visiblePhotos = useMemo(
     () => photos.slice(0, displayCount),
@@ -176,6 +183,8 @@ export default function GalleryPage() {
 
   /** Single photo: on mobile use Share API; on desktop blob download. Fetch via proxy to avoid CORS. */
   const downloadPhoto = useCallback(async (photo) => {
+    if (downloadingPhotoId) return;
+    setDownloadingPhotoId(photo.id);
     const fetchUrl = getImageFetchUrl(photo.fullUrl);
     try {
       const res = await fetch(fetchUrl);
@@ -198,8 +207,10 @@ export default function GalleryPage() {
       showSuccess("Photo downloaded");
     } catch {
       window.open(photo.fullUrl, "_blank");
+    } finally {
+      setDownloadingPhotoId(null);
     }
-  }, [isMobile, showSuccess]);
+  }, [isMobile, showSuccess, downloadingPhotoId]);
 
   const toggleSelect = useCallback((photoId) => {
     setSelectedIds((prev) => {
@@ -312,11 +323,28 @@ export default function GalleryPage() {
             : "Browse and download wedding photos."}
         </p>
 
-        {loading && <p className="gallery-status">Loading…</p>}
-        {error && <p className="gallery-error">{error}</p>}
-
+        {loading && (
+          <div className="gallery-skeleton" aria-hidden>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="gallery-skeleton__card" />
+            ))}
+          </div>
+        )}
+        {!loading && error && (
+          <div className="gallery-error-wrap">
+            <p className="gallery-error">{error}</p>
+            <button type="button" onClick={loadPhotos} className="gallery-retry-btn">
+              Try again
+            </button>
+          </div>
+        )}
         {!loading && !error && photos.length === 0 && (
-          <p className="gallery-empty">No photos yet. Be the first to upload.</p>
+          <div className="gallery-empty-wrap">
+            <p className="gallery-empty">No photos yet. Be the first to upload.</p>
+            <Link href="/upload" className="gallery-empty-cta">
+              Upload photos
+            </Link>
+          </div>
         )}
 
         {!loading && visiblePhotos.length > 0 && (
@@ -354,11 +382,16 @@ export default function GalleryPage() {
                         e.stopPropagation();
                         downloadPhoto(photo);
                       }}
-                      className="gallery-card__download"
+                      className={`gallery-card__download ${downloadingPhotoId === photo.id ? "gallery-card__download--loading" : ""}`}
                       title="Download"
-                      aria-label="Download photo"
+                      aria-label={downloadingPhotoId === photo.id ? "Downloading…" : "Download photo"}
+                      disabled={downloadingPhotoId === photo.id || downloading}
                     >
-                      ↓
+                      {downloadingPhotoId === photo.id ? (
+                        <span className="loading-spinner loading-spinner--sm" aria-hidden />
+                      ) : (
+                        "↓"
+                      )}
                     </button>
                   </div>
                 </div>
@@ -381,7 +414,17 @@ export default function GalleryPage() {
         {(selectedCount > 0 || (shareReadyFiles?.length ?? 0) > 0) && (
           <div className="gallery-float-download">
             {downloadError && (
-              <p className="gallery-float-download__error">{downloadError}</p>
+              <div className="gallery-float-download__error-wrap">
+                <p className="gallery-float-download__error">{downloadError}</p>
+                <button
+                  type="button"
+                  onClick={() => setDownloadError(null)}
+                  className="gallery-float-download__dismiss"
+                  aria-label="Dismiss error"
+                >
+                  Dismiss
+                </button>
+              </div>
             )}
             {shareReadyFiles?.length ? (
               <button

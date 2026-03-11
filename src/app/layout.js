@@ -15,7 +15,12 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={plusJakarta.variable}>
-      <body>{children}</body>
+      <body>
+        <a href="#main" className="skip-link">
+          Skip to main content
+        </a>
+        <div id="main">{children}</div>
+      </body>
     </html>
   );
 }
