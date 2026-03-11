@@ -33,6 +33,18 @@ async function openShareSheet(files) {
   return true;
 }
 
+/** Fetch image URL via same-origin proxy to avoid CORS (e.g. on mobile). */
+function getImageFetchUrl(fullUrl) {
+  if (typeof window === "undefined") return fullUrl;
+  try {
+    const u = new URL(fullUrl);
+    if (u.origin === "https://firebasestorage.googleapis.com") {
+      return `/api/proxy-image?url=${encodeURIComponent(fullUrl)}`;
+    }
+  } catch (_) {}
+  return fullUrl;
+}
+
 export default function GalleryPage() {
   const [photos, setPhotos] = useState([]);
   const [displayCount, setDisplayCount] = useState(BATCH_SIZE);
@@ -67,11 +79,12 @@ export default function GalleryPage() {
   const hasMore = photos.length > displayCount;
   const loadMore = () => setDisplayCount((c) => c + BATCH_SIZE);
 
-  /** Single photo: on mobile use Share API so user gets "Save to Photos"; on desktop blob download. */
+  /** Single photo: on mobile use Share API; on desktop blob download. Fetch via proxy to avoid CORS. */
   const downloadPhoto = useCallback(async (photo) => {
+    const fetchUrl = getImageFetchUrl(photo.fullUrl);
     try {
-      const res = await fetch(photo.fullUrl, { mode: "cors" });
-      if (!res.ok) return;
+      const res = await fetch(fetchUrl);
+      if (!res.ok) throw new Error("Load failed");
       const blob = await res.blob();
       const fileName = photo.fileName || "wedding-photo.jpg";
       if (isMobile && navigator.share) {
@@ -124,7 +137,8 @@ export default function GalleryPage() {
       const fileNames = [];
       for (let i = 0; i < selected.length; i++) {
         const photo = selected[i];
-        const res = await fetch(photo.fullUrl, { mode: "cors" });
+        const fetchUrl = getImageFetchUrl(photo.fullUrl);
+        const res = await fetch(fetchUrl);
         if (!res.ok) throw new Error(`Could not load photo ${i + 1}`);
         const blob = await res.blob();
         blobs.push(blob);
@@ -153,7 +167,12 @@ export default function GalleryPage() {
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setDownloadError(err.message || "Failed. Check your connection or try fewer photos.");
+      const msg = err.message || "";
+      setDownloadError(
+        /load failed|failed to fetch|cors|network/i.test(msg)
+          ? "Couldn’t load photos. Check your connection and try again."
+          : msg || "Something went wrong. Try again."
+      );
     } finally {
       setDownloading(false);
     }
