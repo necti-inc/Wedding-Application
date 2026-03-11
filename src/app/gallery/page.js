@@ -62,24 +62,22 @@ export default function GalleryPage() {
   const hasMore = photos.length > displayCount;
   const loadMore = () => setDisplayCount((c) => c + BATCH_SIZE);
 
-  /** Download or save single photo. On mobile with Share API, opens share sheet so user can "Save to Photos" / Gallery. */
+  /** Download single photo (blob download so it actually downloads, not open in tab). */
   const downloadPhoto = useCallback(async (photo) => {
     try {
       const res = await fetch(photo.fullUrl, { mode: "cors" });
       if (!res.ok) return;
       const blob = await res.blob();
-      const fileName = photo.fileName || "wedding-photo.jpg";
-      if (isMobile && (await shareImagesAsFiles([blob], [fileName]))) return;
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = fileName;
+      link.download = photo.fileName || "wedding-photo.jpg";
       link.click();
       URL.revokeObjectURL(url);
     } catch {
       window.open(photo.fullUrl, "_blank");
     }
-  }, [isMobile]);
+  }, []);
 
   const toggleSelect = useCallback((photoId) => {
     setSelectedIds((prev) => {
@@ -199,10 +197,10 @@ export default function GalleryPage() {
                         downloadPhoto(photo);
                       }}
                       className="gallery-card__download"
-                      title={isMobile ? "Save photo" : "Download"}
-                      aria-label={isMobile ? "Save photo" : "Download photo"}
+                      title="Download"
+                      aria-label="Download photo"
                     >
-                      {isMobile ? "Save" : "↓"}
+                      ↓
                     </button>
                   </div>
                 </div>
@@ -236,7 +234,7 @@ export default function GalleryPage() {
               {downloading
                 ? (isMobile ? "Preparing…" : "Preparing download…")
                 : isMobile
-                  ? `Save ${selectedCount} photo${selectedCount !== 1 ? "s" : ""}`
+                  ? "Save Photos"
                   : `Download ${selectedCount} photo${selectedCount !== 1 ? "s" : ""}`}
             </button>
           </div>
