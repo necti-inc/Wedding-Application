@@ -46,6 +46,13 @@ const TrashIcon = () => (
     <line x1="14" y1="11" x2="14" y2="17" />
   </svg>
 );
+
+const CloseIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
 const DOWNLOAD_FETCH_RETRIES = 2;
 const DOWNLOAD_FETCH_CONCURRENCY = 3;
 
@@ -144,6 +151,7 @@ export default function GalleryPage() {
   const [downloadingPhotoId, setDownloadingPhotoId] = useState(null);
   const [deletingPhotoId, setDeletingPhotoId] = useState(null);
   const [previewPhoto, setPreviewPhoto] = useState(null);
+  const [previewImageLoaded, setPreviewImageLoaded] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [shareReadyFiles, setShareReadyFiles] = useState(null);
@@ -216,6 +224,7 @@ export default function GalleryPage() {
           return next;
         });
         setPreviewPhoto((p) => (p && p.id === photo.id ? null : p));
+        setPreviewImageLoaded(false);
         showSuccess("Photo removed");
       } catch (err) {
         setDownloadError(err.message || "Could not delete photo.");
@@ -476,20 +485,39 @@ export default function GalleryPage() {
                 >
                   <div
                     className="gallery-card__img-wrap"
-                    onClick={() => setPreviewPhoto(photo)}
+                    onClick={() => {
+                      if (selectedIds.size > 0) {
+                        toggleSelect(photo.id);
+                      } else {
+                        setPreviewPhoto(photo);
+                        setPreviewImageLoaded(false);
+                      }
+                    }}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPreviewPhoto(photo); } }}
-                    aria-label="View photo"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        if (selectedIds.size > 0) {
+                          toggleSelect(photo.id);
+                        } else {
+                          setPreviewPhoto(photo);
+                          setPreviewImageLoaded(false);
+                        }
+                      }
+                    }}
+                    aria-label={selectedIds.size > 0 ? (selectedIds.has(photo.id) ? "Deselect photo" : "Select photo") : "View photo"}
                   >
-                    <Image
-                      src={getImageFetchUrl(photo.mediumUrl || photo.fullUrl)}
-                      alt={photo.fileName || "Wedding photo"}
-                      fill
-                      sizes="(max-width: 768px) 25vw, (max-width: 1200px) 25vw, 200px"
-                      className="gallery-card__img"
-                      unoptimized
-                    />
+                    <div className="gallery-card__img-inner">
+                      <Image
+                        src={getImageFetchUrl(photo.mediumUrl || photo.fullUrl)}
+                        alt={photo.fileName || "Wedding photo"}
+                        fill
+                        sizes="(max-width: 768px) 25vw, (max-width: 1200px) 25vw, 200px"
+                        className="gallery-card__img"
+                        unoptimized
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -511,46 +539,57 @@ export default function GalleryPage() {
             {previewPhoto && (
               <div
                 className="gallery-preview-overlay"
-                onClick={() => setPreviewPhoto(null)}
+                onClick={() => { setPreviewPhoto(null); setPreviewImageLoaded(false); }}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Photo preview"
               >
                 <div className="gallery-preview-content" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className="gallery-preview-close"
-                    onClick={() => setPreviewPhoto(null)}
-                    aria-label="Close"
-                  >
-                    ×
-                  </button>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={getImageFetchUrl(previewPhoto.fullUrl || previewPhoto.mediumUrl)}
-                    alt={previewPhoto.fileName || "Wedding photo"}
-                  />
-                  <div className="gallery-preview-actions">
+                  <div className="gallery-preview-image-wrap">
+                    <div className="gallery-preview-placeholder" aria-hidden />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={getImageFetchUrl(previewPhoto.mediumUrl || previewPhoto.fullUrl)}
+                      alt={previewPhoto.fileName || "Wedding photo"}
+                      className={previewImageLoaded ? "gallery-preview-img--loaded" : ""}
+                      onLoad={() => setPreviewImageLoaded(true)}
+                    />
                     <button
                       type="button"
-                      className="gallery-preview-btn"
-                      onClick={() => {
-                        downloadPhoto(previewPhoto);
-                      }}
-                      disabled={downloadingPhotoId === previewPhoto.id}
+                      className="gallery-preview-close"
+                      onClick={() => { setPreviewPhoto(null); setPreviewImageLoaded(false); }}
+                      aria-label="Close"
                     >
-                      {downloadingPhotoId === previewPhoto.id ? "Downloading…" : "Download"}
+                      <CloseIcon />
                     </button>
-                    {isOwner(previewPhoto, phone) && (
+                    <div className="gallery-preview-actions">
                       <button
                         type="button"
-                        className="gallery-preview-btn gallery-preview-btn--delete"
-                        onClick={() => handleDeletePhoto(previewPhoto)}
-                        disabled={deletingPhotoId === previewPhoto.id}
+                        className="gallery-preview-btn"
+                        onClick={() => {
+                          downloadPhoto(previewPhoto);
+                        }}
+                        disabled={downloadingPhotoId === previewPhoto.id}
                       >
-                        {deletingPhotoId === previewPhoto.id ? "Removing…" : "Delete"}
+                        {downloadingPhotoId === previewPhoto.id ? "Downloading…" : "Download"}
                       </button>
-                    )}
+                      {isOwner(previewPhoto, phone) && (
+                        <button
+                          type="button"
+                          className="gallery-preview-btn gallery-preview-btn--delete"
+                          onClick={() => handleDeletePhoto(previewPhoto)}
+                          disabled={deletingPhotoId === previewPhoto.id}
+                          title="Delete photo"
+                          aria-label={deletingPhotoId === previewPhoto.id ? "Removing…" : "Delete photo"}
+                        >
+                          {deletingPhotoId === previewPhoto.id ? (
+                            <span className="loading-spinner loading-spinner--sm" aria-hidden />
+                          ) : (
+                            <TrashIcon />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

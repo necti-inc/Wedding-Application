@@ -910,20 +910,37 @@ img {
   border: none;
 }
 
-.gallery-card--selected {
-  opacity: 0.95;
+/* Inner wrapper so Image (fill) shrinks with padding; aspect-ratio keeps size when child is absolute */
+.gallery-card__img-inner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+/* Selected: more spacing so selection is clear, rounded corners, light grey background */
+.gallery-card--selected .gallery-card__img-wrap {
+  background: #e8e8e8;
+  padding: 5%;
+  box-sizing: border-box;
+}
+
+.gallery-card--selected .gallery-card__img {
+  border-radius: 22px;
 }
 
 .gallery-card__img-wrap {
   position: relative;
   aspect-ratio: 1;
+  box-sizing: border-box;
   background: var(--bg);
   cursor: pointer;
+  transition: background 0.2s, padding 0.2s;
 }
 
 .gallery-card__img {
   object-fit: cover;
   image-orientation: none;
+  transition: border-radius 0.2s;
 }
 
 /* Gallery tabs: All | My photos */
@@ -995,6 +1012,17 @@ img {
 .gallery-card__check--on:hover {
   background: #1557b0;
   border-color: #1557b0;
+}
+
+@media (max-width: 768px) {
+  .gallery-card__check {
+    width: 20px;
+    height: 20px;
+    top: 6px;
+    left: 6px;
+    font-size: 0.65rem;
+    border-width: 1.5px;
+  }
 }
 
 /* Floating bar – pill with Download + optional red Delete (Google Photos–style) */
@@ -1125,75 +1153,128 @@ img {
   max-width: 100%;
   max-height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-.gallery-preview-content img {
+/* Image area: placeholder + image + close on top-right of image */
+.gallery-preview-image-wrap {
+  position: relative;
+  max-width: 100%;
+  max-height: calc(100vh - 120px);
+  min-height: 280px;
+  min-width: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gallery-preview-placeholder {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 8px;
+}
+
+.gallery-preview-image-wrap img {
+  position: relative;
   max-width: 100%;
   max-height: calc(100vh - 120px);
   width: auto;
   height: auto;
   object-fit: contain;
   border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.gallery-preview-image-wrap img.gallery-preview-img--loaded {
+  opacity: 1;
 }
 
 .gallery-preview-close {
   position: absolute;
-  top: -48px;
-  right: 0;
+  top: 12px;
+  right: 12px;
   width: 40px;
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.2);
+  padding: 0;
+  background: rgba(0, 0, 0, 0.5);
   color: #fff;
   border: none;
   border-radius: 50%;
-  font-size: 1.5rem;
   cursor: pointer;
   transition: background 0.2s;
+  z-index: 2;
 }
 
 .gallery-preview-close:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.7);
 }
 
+.gallery-preview-close svg {
+  display: block;
+}
+
+/* Same pill bar as multi-select: on bottom of image, same shadow */
 .gallery-preview-actions {
   position: absolute;
-  bottom: -56px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 28px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
 }
 
 .gallery-preview-actions .gallery-preview-btn {
-  padding: 10px 20px;
+  padding: 12px 24px;
   background: var(--lavender);
   color: var(--text);
   border: none;
   border-radius: var(--radius-pill);
   font-size: 0.9375rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   font-family: var(--font);
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.2s;
 }
 
-.gallery-preview-actions .gallery-preview-btn:hover {
+.gallery-preview-actions .gallery-preview-btn:hover:not(:disabled) {
   background: var(--lavender-hover);
+  transform: translateY(-1px);
 }
 
 .gallery-preview-actions .gallery-preview-btn--delete {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #ea4335;
   color: #fff;
+  flex-shrink: 0;
 }
 
-.gallery-preview-actions .gallery-preview-btn--delete:hover {
+.gallery-preview-actions .gallery-preview-btn--delete:hover:not(:disabled) {
   background: #c5221f;
+  transform: scale(1.05);
+}
+
+.gallery-preview-actions .gallery-preview-btn--delete .loading-spinner {
+  border-color: rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
 }
 
 .gallery-success-toast {
