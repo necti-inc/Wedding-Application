@@ -1,3 +1,7 @@
 {
-  "/gallery/page": "app/gallery/page.js"
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/upload/page": "app/upload/page.js",
+  "/gallery/page": "app/gallery/page.js",
+  "/api/proxy-image/route": "app/api/proxy-image/route.js"
 }

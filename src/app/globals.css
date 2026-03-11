@@ -514,6 +514,7 @@ img {
 
 .gallery-card__img {
   object-fit: cover;
+  image-orientation: from-image;
 }
 
 /* Download button – top right of each card */
@@ -623,6 +624,36 @@ img {
   max-width: 90vw;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.gallery-success-toast {
+  position: fixed;
+  top: max(20px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 14px 24px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-hover);
+  border: 1px solid var(--border);
+  animation: gallery-toast-in 0.3s ease;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+}
+
+@keyframes gallery-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .gallery-status, .gallery-error, .gallery-empty {

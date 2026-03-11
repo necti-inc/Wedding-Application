@@ -1,10 +1,37 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import JSZip from "jszip";
 import { fetchListPhotos } from "@/lib/firebase";
+
+/** Fire confetti from the top (Linktree-style). Loads canvas-confetti only on client. */
+function fireSuccessConfetti() {
+  if (typeof window === "undefined") return;
+  import("canvas-confetti").then(({ default: confetti }) => {
+    const duration = 2000;
+    const end = Date.now() + duration;
+    const colors = ["#E8D0F3", "#c9a0dc", "#2C2C34", "#1DB954"];
+    (function frame() {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors,
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors,
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+  });
+}
 
 const BATCH_SIZE = 48;
 const ZIP_FOLDER_NAME = "wedding-photo-downloads";
@@ -56,6 +83,9 @@ export default function GalleryPage() {
   const [isMobile, setIsMobile] = useState(false);
   /** On mobile: after "Save Photos" we fetch and store files here; second tap opens share sheet (required for iOS/Android). */
   const [shareReadyFiles, setShareReadyFiles] = useState(null);
+  /** Success message + confetti after save/download (e.g. "3 photos saved to your photos"). */
+  const [successMessage, setSuccessMessage] = useState(null);
+  const successTimeoutRef = useRef(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
@@ -63,6 +93,22 @@ export default function GalleryPage() {
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+    };
+  }, []);
+
+  const showSuccess = useCallback((message) => {
+    if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+    setSuccessMessage(message);
+    fireSuccessConfetti();
+    successTimeoutRef.current = setTimeout(() => {
+      setSuccessMessage(null);
+      successTimeoutRef.current = null;
+    }, 4000);
   }, []);
 
   useEffect(() => {
@@ -91,6 +137,7 @@ export default function GalleryPage() {
         const files = blobsToFiles([blob], [fileName]);
         if (navigator.canShare && !navigator.canShare({ files })) throw new Error("Share not supported");
         await navigator.share({ files, title: "Wedding photo" });
+        showSuccess("1 photo saved to your photos");
         return;
       }
       const url = URL.createObjectURL(blob);
@@ -99,10 +146,11 @@ export default function GalleryPage() {
       link.download = fileName;
       link.click();
       URL.revokeObjectURL(url);
+      showSuccess("Photo downloaded");
     } catch {
       window.open(photo.fullUrl, "_blank");
     }
-  }, [isMobile]);
+  }, [isMobile, showSuccess]);
 
   const toggleSelect = useCallback((photoId) => {
     setSelectedIds((prev) => {
@@ -116,14 +164,22 @@ export default function GalleryPage() {
   /** On mobile, share sheet must open from a user tap. Second tap opens share (first tap prepared the files). */
   const openSavePhotosSheet = useCallback(async () => {
     if (!shareReadyFiles?.length) return;
+    const count = shareReadyFiles.length;
     setDownloadError(null);
     try {
       const ok = await openShareSheet(shareReadyFiles);
-      if (ok) setShareReadyFiles(null);
+      if (ok) {
+        setShareReadyFiles(null);
+        showSuccess(
+          count === 1
+            ? "1 photo saved to your photos"
+            : `${count} photos saved to your photos`
+        );
+      }
     } catch {
       setShareReadyFiles(null);
     }
-  }, [shareReadyFiles]);
+  }, [shareReadyFiles, showSuccess]);
 
   /** Save/download selected. On mobile: first tap = fetch files; then button becomes "Tap to save" and second tap opens share sheet. */
   const downloadSelected = useCallback(async () => {
@@ -166,6 +222,10 @@ export default function GalleryPage() {
       link.download = `${ZIP_FOLDER_NAME}.zip`;
       link.click();
       URL.revokeObjectURL(url);
+      const count = blobs.length;
+      showSuccess(
+        count === 1 ? "1 photo downloaded" : `${count} photos downloaded`
+      );
     } catch (err) {
       const msg = err.message || "";
       setDownloadError(
@@ -176,12 +236,17 @@ export default function GalleryPage() {
     } finally {
       setDownloading(false);
     }
-  }, [visiblePhotos, selectedIds, isMobile]);
+  }, [visiblePhotos, selectedIds, isMobile, showSuccess]);
 
   const selectedCount = selectedIds.size;
 
   return (
     <main className="page">
+      {successMessage && (
+        <div className="gallery-success-toast" role="status">
+          {successMessage}
+        </div>
+      )}
       <header className="page__header">
         <Link href="/" className="page__back">
           ← Back
@@ -212,7 +277,7 @@ export default function GalleryPage() {
                 >
                   <div className="gallery-card__img-wrap">
                     <Image
-                      src={photo.mediumUrl || photo.fullUrl}
+                      src={getImageFetchUrl(photo.mediumUrl || photo.fullUrl)}
                       alt={photo.fileName || "Wedding photo"}
                       fill
                       sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 200px"
