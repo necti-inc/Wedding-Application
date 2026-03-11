@@ -875,13 +875,12 @@ img {
   border-color: var(--lavender-deep);
 }
 
-/* ========== Gallery ========== */
-/* 5 photos per row on large screens, fewer on small */
+/* ========== Gallery (Google Photos–style) ========== */
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  grid-gap: 12px;
-  gap: 12px;
+  grid-gap: 4px;
+  gap: 4px;
 }
 
 @media (max-width: 1200px) {
@@ -892,110 +891,39 @@ img {
 
 @media (max-width: 768px) {
   .gallery-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
   }
 }
 
 @media (max-width: 480px) {
   .gallery-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
   }
 }
 
 .gallery-card {
-  background: var(--bg-card);
-  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border-radius: 2px;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: none;
 }
 
 .gallery-card--selected {
-  border-color: var(--lavender-deep);
-  box-shadow: 0 0 0 2px var(--lavender);
+  opacity: 0.95;
 }
 
 .gallery-card__img-wrap {
   position: relative;
   aspect-ratio: 1;
   background: var(--bg);
+  cursor: pointer;
 }
 
 .gallery-card__img {
   object-fit: cover;
-  /* Don't apply EXIF orientation – images from Storage are already vertical */
   image-orientation: none;
-}
-
-/* Download button – top right of each card */
-.gallery-card__download {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.9);
-  -webkit-backdrop-filter: blur(8px);
-          backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  color: var(--text);
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
-  z-index: 2;
-}
-
-.gallery-card__download:hover {
-  background: #fff;
-  transform: scale(1.08);
-}
-
-.gallery-card__download:disabled,
-.gallery-card__download--loading {
-  cursor: not-allowed;
-  opacity: 0.9;
-}
-
-.gallery-card__download--loading:hover {
-  transform: none;
-}
-
-.gallery-card__delete {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(224, 122, 122, 0.95);
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  font-size: 0.875rem;
-  cursor: pointer;
-  z-index: 2;
-  transition: background 0.2s, transform 0.2s;
-}
-
-.gallery-card__delete:hover {
-  background: var(--coral-dark);
-  transform: scale(1.08);
-}
-
-.gallery-card__delete:disabled,
-.gallery-card__delete--loading {
-  cursor: not-allowed;
-  opacity: 0.9;
-}
-
-.gallery-card__delete--loading:hover {
-  transform: none;
 }
 
 /* Gallery tabs: All | My photos */
@@ -1030,68 +958,107 @@ img {
   border-color: var(--lavender-deep);
 }
 
-/* Selection box – top left of each card, always visible */
+/* Selection – Google Photos style: blue circle + check when selected, hollow grey when not */
 .gallery-card__check {
   position: absolute;
-  top: 10px;
-  left: 10px;
-  width: 28px;
-  height: 28px;
+  top: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  background: rgba(255, 255, 255, 0.9);
-  border: 2px solid var(--border);
-  border-radius: 8px;
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
   color: transparent;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   z-index: 2;
   transition: background 0.2s, border-color 0.2s, color 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .gallery-card__check:hover {
-  background: rgba(255, 255, 255, 1);
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .gallery-card__check--on {
-  background: var(--lavender);
-  border-color: var(--lavender-deep);
-  color: var(--text);
+  background: #1a73e8;
+  border-color: #1a73e8;
+  color: #fff;
 }
 
-/* Floating download bar – bottom of screen when multiple selected */
+.gallery-card__check--on:hover {
+  background: #1557b0;
+  border-color: #1557b0;
+}
+
+/* Floating bar – pill with Download + optional red Delete (Google Photos–style) */
 .gallery-float-download {
   position: fixed;
   bottom: max(24px, env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 28px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
 }
 
 .gallery-float-download__btn {
-  padding: 16px 32px;
+  padding: 12px 24px;
   background: var(--lavender);
   color: var(--text);
   border: none;
   border-radius: var(--radius-pill);
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 700;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   cursor: pointer;
-  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  transition: background 0.2s, transform 0.2s;
 }
 
 .gallery-float-download__btn:hover:not(:disabled) {
   background: var(--lavender-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
 
 .gallery-float-download__btn:disabled {
   opacity: 0.85;
+  cursor: not-allowed;
+}
+
+.gallery-float-download__delete {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ea4335;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 1.125rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.gallery-float-download__delete:hover:not(:disabled) {
+  background: #c5221f;
+  transform: scale(1.05);
+}
+
+.gallery-float-download__delete:disabled {
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
@@ -1135,6 +1102,100 @@ img {
   background: rgba(255, 255, 255, 0.35);
 }
 
+/* Preview modal – full image, download, delete (if own) */
+.gallery-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: gallery-preview-fade 0.2s ease;
+}
+
+@keyframes gallery-preview-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.gallery-preview-content {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gallery-preview-content img {
+  max-width: 100%;
+  max-height: calc(100vh - 120px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.gallery-preview-close {
+  position: absolute;
+  top: -48px;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.gallery-preview-close:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.gallery-preview-actions {
+  position: absolute;
+  bottom: -56px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gallery-preview-actions .gallery-preview-btn {
+  padding: 10px 20px;
+  background: var(--lavender);
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.2s;
+}
+
+.gallery-preview-actions .gallery-preview-btn:hover {
+  background: var(--lavender-hover);
+}
+
+.gallery-preview-actions .gallery-preview-btn--delete {
+  background: #ea4335;
+  color: #fff;
+}
+
+.gallery-preview-actions .gallery-preview-btn--delete:hover {
+  background: #c5221f;
+}
+
 .gallery-success-toast {
   position: fixed;
   top: max(20px, env(safe-area-inset-top));
@@ -1167,16 +1228,28 @@ img {
 
 .gallery-skeleton {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  grid-gap: 16px;
-  gap: 16px;
+  grid-template-columns: repeat(5, 1fr);
+  grid-gap: 4px;
+  gap: 4px;
   margin-top: 20px;
+}
+
+@media (max-width: 1200px) {
+  .gallery-skeleton {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .gallery-skeleton {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .gallery-skeleton__card {
   aspect-ratio: 1;
   background: var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 2px;
   animation: gallery-skeleton-pulse 1.2s ease-in-out infinite;
 }
 

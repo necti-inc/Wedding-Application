@@ -37,6 +37,15 @@ function fireSuccessConfetti() {
 
 const BATCH_SIZE = 48;
 const ZIP_FOLDER_NAME = "wedding-photo-downloads";
+
+const TrashIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <line x1="10" y1="11" x2="10" y2="17" />
+    <line x1="14" y1="11" x2="14" y2="17" />
+  </svg>
+);
 const DOWNLOAD_FETCH_RETRIES = 2;
 const DOWNLOAD_FETCH_CONCURRENCY = 3;
 
@@ -134,6 +143,7 @@ export default function GalleryPage() {
   const [downloading, setDownloading] = useState(false);
   const [downloadingPhotoId, setDownloadingPhotoId] = useState(null);
   const [deletingPhotoId, setDeletingPhotoId] = useState(null);
+  const [previewPhoto, setPreviewPhoto] = useState(null);
   const [downloadError, setDownloadError] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [shareReadyFiles, setShareReadyFiles] = useState(null);
@@ -205,6 +215,7 @@ export default function GalleryPage() {
           next.delete(photo.id);
           return next;
         });
+        setPreviewPhoto((p) => (p && p.id === photo.id ? null : p));
         showSuccess("Photo removed");
       } catch (err) {
         setDownloadError(err.message || "Could not delete photo.");
@@ -213,6 +224,35 @@ export default function GalleryPage() {
       }
     },
     [phone, deletingPhotoId, showSuccess]
+  );
+
+  /** Delete all selected photos that the user owns (floating bar red button). */
+  const deleteSelectedOwn = useCallback(async () => {
+    if (!phone || downloading) return;
+    const selected = visiblePhotos.filter((p) => selectedIds.has(p.id) && isOwner(p, phone));
+    if (selected.length === 0) return;
+    setDownloadError(null);
+    setDownloading(true);
+    const idsToRemove = new Set(selected.map((p) => p.id));
+    try {
+      for (const photo of selected) {
+        await deletePhoto(photo.id, phone);
+      }
+      setPhotos((prev) => prev.filter((p) => !idsToRemove.has(p.id)));
+      setSelectedIds(new Set());
+      setShareReadyFiles(null);
+      setPreviewPhoto((p) => (p && idsToRemove.has(p.id) ? null : p));
+      showSuccess(selected.length === 1 ? "Photo removed" : `${selected.length} photos removed`);
+    } catch (err) {
+      setDownloadError(err.message || "Could not delete some photos.");
+    } finally {
+      setDownloading(false);
+    }
+  }, [phone, visiblePhotos, selectedIds, downloading, showSuccess]);
+
+  const selectedOwnCount = useMemo(
+    () => visiblePhotos.filter((p) => selectedIds.has(p.id) && isOwner(p, phone)).length,
+    [visiblePhotos, selectedIds, phone]
   );
 
   /** Single photo: on mobile use Share API; on desktop blob download. Fetch via proxy to avoid CORS. */
@@ -434,12 +474,19 @@ export default function GalleryPage() {
                   key={photo.id}
                   className={`gallery-card ${selectedIds.has(photo.id) ? "gallery-card--selected" : ""}`}
                 >
-                  <div className="gallery-card__img-wrap">
+                  <div
+                    className="gallery-card__img-wrap"
+                    onClick={() => setPreviewPhoto(photo)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPreviewPhoto(photo); } }}
+                    aria-label="View photo"
+                  >
                     <Image
                       src={getImageFetchUrl(photo.mediumUrl || photo.fullUrl)}
                       alt={photo.fileName || "Wedding photo"}
                       fill
-                      sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 200px"
+                      sizes="(max-width: 768px) 25vw, (max-width: 1200px) 25vw, 200px"
                       className="gallery-card__img"
                       unoptimized
                     />
@@ -447,6 +494,7 @@ export default function GalleryPage() {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        e.preventDefault();
                         toggleSelect(photo.id);
                       }}
                       className={`gallery-card__check ${selectedIds.has(photo.id) ? "gallery-card__check--on" : ""}`}
@@ -455,46 +503,58 @@ export default function GalleryPage() {
                     >
                       {selectedIds.has(photo.id) ? "✓" : ""}
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        downloadPhoto(photo);
-                      }}
-                      className={`gallery-card__download ${downloadingPhotoId === photo.id ? "gallery-card__download--loading" : ""}`}
-                      title="Download"
-                      aria-label={downloadingPhotoId === photo.id ? "Downloading…" : "Download photo"}
-                      disabled={downloadingPhotoId === photo.id || downloading}
-                    >
-                      {downloadingPhotoId === photo.id ? (
-                        <span className="loading-spinner loading-spinner--sm" aria-hidden />
-                      ) : (
-                        "↓"
-                      )}
-                    </button>
-                    {isOwner(photo, phone) && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeletePhoto(photo);
-                        }}
-                        className={`gallery-card__delete ${deletingPhotoId === photo.id ? "gallery-card__delete--loading" : ""}`}
-                        title="Remove my photo"
-                        aria-label={deletingPhotoId === photo.id ? "Removing…" : "Remove my photo"}
-                        disabled={deletingPhotoId === photo.id}
-                      >
-                        {deletingPhotoId === photo.id ? (
-                          <span className="loading-spinner loading-spinner--sm" aria-hidden />
-                        ) : (
-                          "✕"
-                        )}
-                      </button>
-                    )}
                   </div>
                 </div>
               ))}
             </div>
+
+            {previewPhoto && (
+              <div
+                className="gallery-preview-overlay"
+                onClick={() => setPreviewPhoto(null)}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Photo preview"
+              >
+                <div className="gallery-preview-content" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="gallery-preview-close"
+                    onClick={() => setPreviewPhoto(null)}
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getImageFetchUrl(previewPhoto.fullUrl || previewPhoto.mediumUrl)}
+                    alt={previewPhoto.fileName || "Wedding photo"}
+                  />
+                  <div className="gallery-preview-actions">
+                    <button
+                      type="button"
+                      className="gallery-preview-btn"
+                      onClick={() => {
+                        downloadPhoto(previewPhoto);
+                      }}
+                      disabled={downloadingPhotoId === previewPhoto.id}
+                    >
+                      {downloadingPhotoId === previewPhoto.id ? "Downloading…" : "Download"}
+                    </button>
+                    {isOwner(previewPhoto, phone) && (
+                      <button
+                        type="button"
+                        className="gallery-preview-btn gallery-preview-btn--delete"
+                        onClick={() => handleDeletePhoto(previewPhoto)}
+                        disabled={deletingPhotoId === previewPhoto.id}
+                      >
+                        {deletingPhotoId === previewPhoto.id ? "Removing…" : "Delete"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             {hasMore && (
               <div className="gallery-load-more">
                 <button
@@ -525,26 +585,54 @@ export default function GalleryPage() {
               </div>
             )}
             {shareReadyFiles?.length ? (
-              <button
-                type="button"
-                onClick={openSavePhotosSheet}
-                className="gallery-float-download__btn"
-              >
-                Tap to save
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={openSavePhotosSheet}
+                  className="gallery-float-download__btn"
+                >
+                  Tap to save
+                </button>
+                {selectedOwnCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={deleteSelectedOwn}
+                    className="gallery-float-download__delete"
+                    disabled={downloading}
+                    title="Delete selected"
+                    aria-label={`Delete ${selectedOwnCount} photo${selectedOwnCount !== 1 ? "s" : ""}`}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </>
             ) : (
-              <button
-                type="button"
-                onClick={downloadSelected}
-                className="gallery-float-download__btn"
-                disabled={downloading}
-              >
-                {downloading
-                  ? (isMobile ? "Preparing…" : "Preparing download…")
-                  : isMobile
-                    ? "Save Photos"
-                    : `Download ${selectedCount} photo${selectedCount !== 1 ? "s" : ""}`}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={downloadSelected}
+                  className="gallery-float-download__btn"
+                  disabled={downloading}
+                >
+                  {downloading
+                    ? (isMobile ? "Preparing…" : "Preparing download…")
+                    : isMobile
+                      ? "Save Photos"
+                      : `Download ${selectedCount} photo${selectedCount !== 1 ? "s" : ""}`}
+                </button>
+                {selectedOwnCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={deleteSelectedOwn}
+                    className="gallery-float-download__delete"
+                    disabled={downloading}
+                    title="Delete selected"
+                    aria-label={`Delete ${selectedOwnCount} photo${selectedOwnCount !== 1 ? "s" : ""}`}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </>
             )}
           </div>
         )}
