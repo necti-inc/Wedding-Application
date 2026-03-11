@@ -4,7 +4,9 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import JSZip from "jszip";
-import { fetchListPhotos } from "@/lib/firebase";
+import { fetchListPhotos, deletePhoto } from "@/lib/firebase";
+import { getSessionPhone, isOwner } from "@/lib/session";
+import PhoneGate from "@/components/PhoneGate";
 
 /** Fire confetti from the top (Linktree-style). Loads canvas-confetti only on client. */
 function fireSuccessConfetti() {
@@ -122,20 +124,25 @@ function getImageFetchUrl(fullUrl) {
 }
 
 export default function GalleryPage() {
+  const [phone, setPhone] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [displayCount, setDisplayCount] = useState(BATCH_SIZE);
+  const [tab, setTab] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [downloading, setDownloading] = useState(false);
   const [downloadingPhotoId, setDownloadingPhotoId] = useState(null);
+  const [deletingPhotoId, setDeletingPhotoId] = useState(null);
   const [downloadError, setDownloadError] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
-  /** On mobile: after "Save Photos" we fetch and store files here; second tap opens share sheet (required for iOS/Android). */
   const [shareReadyFiles, setShareReadyFiles] = useState(null);
-  /** Success message + confetti after save/download (e.g. "3 photos saved to your photos"). */
   const [successMessage, setSuccessMessage] = useState(null);
   const successTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    setPhone(getSessionPhone());
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
@@ -174,12 +181,39 @@ export default function GalleryPage() {
     loadPhotos();
   }, [loadPhotos]);
 
-  const visiblePhotos = useMemo(
-    () => photos.slice(0, displayCount),
-    [photos, displayCount]
+  const filteredPhotos = useMemo(
+    () => (tab === "mine" && phone ? photos.filter((p) => isOwner(p, phone)) : photos),
+    [photos, tab, phone]
   );
-  const hasMore = photos.length > displayCount;
+  const visiblePhotos = useMemo(
+    () => filteredPhotos.slice(0, displayCount),
+    [filteredPhotos, displayCount]
+  );
+  const hasMore = filteredPhotos.length > displayCount;
   const loadMore = () => setDisplayCount((c) => c + BATCH_SIZE);
+
+  const handleDeletePhoto = useCallback(
+    async (photo) => {
+      if (!phone || !isOwner(photo, phone) || deletingPhotoId) return;
+      setDeletingPhotoId(photo.id);
+      setDownloadError(null);
+      try {
+        await deletePhoto(photo.id, phone);
+        setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(photo.id);
+          return next;
+        });
+        showSuccess("Photo removed");
+      } catch (err) {
+        setDownloadError(err.message || "Could not delete photo.");
+      } finally {
+        setDeletingPhotoId(null);
+      }
+    },
+    [phone, deletingPhotoId, showSuccess]
+  );
 
   /** Single photo: on mobile use Share API; on desktop blob download. Fetch via proxy to avoid CORS. */
   const downloadPhoto = useCallback(async (photo) => {
@@ -302,6 +336,19 @@ export default function GalleryPage() {
   }, [visiblePhotos, selectedIds, isMobile, showSuccess]);
 
   const selectedCount = selectedIds.size;
+  const myCount = phone ? photos.filter((p) => isOwner(p, phone)).length : 0;
+
+  if (phone === null) {
+    return (
+      <main className="page">
+        <PhoneGate
+          title="Enter your phone number"
+          subtitle="So you can view the gallery and delete your own photos if you want."
+          onContinue={() => setPhone(getSessionPhone())}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="page">
@@ -323,6 +370,29 @@ export default function GalleryPage() {
             : "Browse and download wedding photos."}
         </p>
 
+        {!loading && !error && photos.length > 0 && (
+          <div className="gallery-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "all"}
+              className={`gallery-tabs__tab ${tab === "all" ? "gallery-tabs__tab--active" : ""}`}
+              onClick={() => { setTab("all"); setDisplayCount(BATCH_SIZE); }}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "mine"}
+              className={`gallery-tabs__tab ${tab === "mine" ? "gallery-tabs__tab--active" : ""}`}
+              onClick={() => { setTab("mine"); setDisplayCount(BATCH_SIZE); }}
+            >
+              My photos {myCount > 0 ? `(${myCount})` : ""}
+            </button>
+          </div>
+        )}
+
         {loading && (
           <div className="gallery-skeleton" aria-hidden>
             {Array.from({ length: 12 }).map((_, i) => (
@@ -341,6 +411,15 @@ export default function GalleryPage() {
         {!loading && !error && photos.length === 0 && (
           <div className="gallery-empty-wrap">
             <p className="gallery-empty">No photos yet. Be the first to upload.</p>
+            <Link href="/upload" className="gallery-empty-cta">
+              Upload photos
+            </Link>
+          </div>
+        )}
+
+        {!loading && !error && photos.length > 0 && tab === "mine" && myCount === 0 && (
+          <div className="gallery-empty-wrap">
+            <p className="gallery-empty">You haven’t uploaded any photos yet.</p>
             <Link href="/upload" className="gallery-empty-cta">
               Upload photos
             </Link>
@@ -393,6 +472,25 @@ export default function GalleryPage() {
                         "↓"
                       )}
                     </button>
+                    {isOwner(photo, phone) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePhoto(photo);
+                        }}
+                        className={`gallery-card__delete ${deletingPhotoId === photo.id ? "gallery-card__delete--loading" : ""}`}
+                        title="Remove my photo"
+                        aria-label={deletingPhotoId === photo.id ? "Removing…" : "Remove my photo"}
+                        disabled={deletingPhotoId === photo.id}
+                      >
+                        {deletingPhotoId === photo.id ? (
+                          <span className="loading-spinner loading-spinner--sm" aria-hidden />
+                        ) : (
+                          "✕"
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -404,7 +502,7 @@ export default function GalleryPage() {
                   onClick={loadMore}
                   className="gallery-load-more-btn"
                 >
-                  Load more ({photos.length - displayCount} remaining)
+                  Load more ({filteredPhotos.length - displayCount} remaining)
                 </button>
               </div>
             )}

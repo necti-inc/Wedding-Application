@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import Link from "next/link";
 import { ref, uploadBytesResumable } from "firebase/storage";
 import { storage } from "@/lib/firebase";
+import { getSessionPhone } from "@/lib/session";
+import PhoneGate from "@/components/PhoneGate";
 
 const UPLOADS_PREFIX = "uploads/";
 /** Number of files uploading at once; balances speed vs browser/network limits. */
@@ -37,11 +39,16 @@ function fireUploadSuccessConfetti() {
 }
 
 export default function UploadPage() {
+  const [phone, setPhone] = useState(null);
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [done, setDone] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setPhone(getSessionPhone());
+  }, []);
 
   const handleSelect = useCallback((e) => {
     const chosen = Array.from(e.target.files || []);
@@ -72,8 +79,12 @@ export default function UploadPage() {
       const ext = (file.name.match(/\.(jpe?g|png|gif|webp)$/i) || [".jpg"])[1]?.toLowerCase() || "jpg";
       const path = `${UPLOADS_PREFIX}${batchId}-${i}.${ext}`;
       const storageRef = ref(storage, path);
+      const metadata = {
+        contentType: file.type,
+        customMetadata: phone ? { uploadedBy: phone } : {},
+      };
       return new Promise((resolve, reject) => {
-        const task = uploadBytesResumable(storageRef, file, { contentType: file.type });
+        const task = uploadBytesResumable(storageRef, file, metadata);
         task.on(
           "state_changed",
           () => {},
@@ -121,10 +132,22 @@ export default function UploadPage() {
     setDone(true);
     setFiles([]);
     fireUploadSuccessConfetti();
-  }, [files]);
+  }, [files, phone]);
 
   const count = files.length;
   const progressPct = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+
+  if (phone === null) {
+    return (
+      <main className="page upload-page">
+        <PhoneGate
+          title="Enter your phone number"
+          subtitle="We’ll use this so your uploads are linked to you and you can delete your own photos later if you want."
+          onContinue={() => setPhone(getSessionPhone())}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="page upload-page">

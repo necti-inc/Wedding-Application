@@ -20,9 +20,27 @@ const LIST_PHOTOS_URL =
   process.env.NEXT_PUBLIC_LIST_PHOTOS_URL ||
   "https://us-central1-wedding-app-12da5.cloudfunctions.net/listPhotos";
 
+/** URL of the deletePhoto Cloud Function. */
+const DELETE_PHOTO_URL =
+  process.env.NEXT_PUBLIC_DELETE_PHOTO_URL ||
+  "https://us-central1-wedding-app-12da5.cloudfunctions.net/deletePhoto";
+
 export async function fetchListPhotos() {
   const res = await fetch(LIST_PHOTOS_URL);
   if (!res.ok) throw new Error("Failed to load photos");
   const data = await res.json();
   return data.photos ?? [];
+}
+
+export async function deletePhoto(photoId, phoneNumber) {
+  const res = await fetch(DELETE_PHOTO_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ photoId, phoneNumber }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to delete photo");
+  }
+  return res.json();
 }

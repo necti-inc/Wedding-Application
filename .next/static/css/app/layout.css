@@ -260,6 +260,97 @@ img {
   outline-offset: 2px;
 }
 
+/* ========== Phone gate (session: enter phone to upload / view gallery) ========== */
+.phone-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.phone-gate__card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px;
+}
+
+.phone-gate__title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px 0;
+}
+
+.phone-gate__subtitle {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.phone-gate__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.phone-gate__input {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  box-sizing: border-box;
+}
+
+.phone-gate__input:focus {
+  outline: none;
+  border-color: var(--lavender-deep);
+  box-shadow: 0 0 0 2px rgba(201, 160, 220, 0.3);
+}
+
+.phone-gate__error {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--coral);
+  font-weight: 500;
+}
+
+.phone-gate__btn {
+  padding: 14px 24px;
+  background: var(--lavender);
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.2s, transform 0.2s;
+}
+
+.phone-gate__btn:hover {
+  background: var(--lavender-hover);
+  transform: translateY(-1px);
+}
+
+.phone-gate__back {
+  display: inline-block;
+  margin-top: 20px;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.phone-gate__back:hover {
+  color: var(--text);
+}
+
 /* ========== Loading (spinner + full-page) ========== */
 .loading-spinner {
   width: 24px;
@@ -871,6 +962,72 @@ img {
 
 .gallery-card__download--loading:hover {
   transform: none;
+}
+
+.gallery-card__delete {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(224, 122, 122, 0.95);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 0.875rem;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.gallery-card__delete:hover {
+  background: var(--coral-dark);
+  transform: scale(1.08);
+}
+
+.gallery-card__delete:disabled,
+.gallery-card__delete--loading {
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+
+.gallery-card__delete--loading:hover {
+  transform: none;
+}
+
+/* Gallery tabs: All | My photos */
+.gallery-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.gallery-tabs__tab {
+  padding: 10px 20px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.gallery-tabs__tab:hover {
+  color: var(--text);
+  border-color: var(--lavender-deep);
+}
+
+.gallery-tabs__tab--active {
+  background: var(--lavender);
+  color: var(--text);
+  border-color: var(--lavender-deep);
 }
 
 /* Selection box – top left of each card, always visible */
