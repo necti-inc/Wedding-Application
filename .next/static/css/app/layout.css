@@ -1252,7 +1252,7 @@ img {
   width: 100vw;
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
-  background: var(--text);
+  background: var(--bg);
   padding-top: 0;
   padding-bottom: 0;
   isolation: isolate;
@@ -1345,6 +1345,8 @@ img {
   border-radius: 0;
   overflow: hidden;
   border: none;
+  /* Light gap only between images; section background is dark so incomplete rows stay dark */
+  box-shadow: 1.5px 0 0 var(--text), 0 1.5px 0 var(--text);
 }
 
 /* Inner wrapper so Image (fill) shrinks with padding; aspect-ratio keeps size when child is absolute */
