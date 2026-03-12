@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ref, uploadBytesResumable } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { getSessionPhone } from "@/lib/session";
+import { hapticTap } from "@/lib/haptic";
 import PhoneGate from "@/components/PhoneGate";
 
 const UPLOADS_PREFIX = "uploads/";
@@ -107,6 +108,7 @@ export default function UploadPage() {
   }, [navOpen]);
 
   const handleSelect = useCallback((e) => {
+    hapticTap();
     const chosen = Array.from(e.target.files || []);
     const images = chosen.filter((f) => f.type.startsWith("image/"));
     setFiles((prev) => [...prev, ...images]);
@@ -115,6 +117,7 @@ export default function UploadPage() {
   }, []);
 
   const clearFiles = useCallback(() => {
+    hapticTap();
     setFiles([]);
     setError(null);
     setDone(false);
@@ -155,6 +158,7 @@ export default function UploadPage() {
           () => {
             completed += 1;
             completedRef.current = completed;
+            setProgress({ current: completed, total });
             resolve({ index: i, success: true });
           }
         );
@@ -237,7 +241,7 @@ export default function UploadPage() {
           <button
             type="button"
             className="gallery-header__menu-btn"
-            onClick={() => setNavOpen(true)}
+            onClick={() => { hapticTap(); setNavOpen(true); }}
             aria-label="Open menu"
           >
             <HamburgerIcon />
@@ -247,7 +251,7 @@ export default function UploadPage() {
 
       <div
         className={`nav-drawer-overlay ${navOpen ? "nav-drawer-overlay--open" : ""}`}
-        onClick={() => setNavOpen(false)}
+        onClick={() => { hapticTap(); setNavOpen(false); }}
         onKeyDown={(e) => e.key === "Escape" && setNavOpen(false)}
         role="button"
         tabIndex={-1}
@@ -262,23 +266,23 @@ export default function UploadPage() {
           <button
             type="button"
             className="nav-drawer__close"
-            onClick={() => setNavOpen(false)}
+            onClick={() => { hapticTap(); setNavOpen(false); }}
             aria-label="Close menu"
           >
             <CloseIcon />
           </button>
         </div>
         <nav className="nav-drawer__nav">
-          <Link href="/" className={`nav-drawer__link ${pathname === "/" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+          <Link href="/" className={`nav-drawer__link ${pathname === "/" ? "nav-drawer__link--active" : ""}`} onClick={() => { hapticTap(); setNavOpen(false); }}>
             Home
           </Link>
-          <Link href="/upload" className={`nav-drawer__link ${pathname === "/upload" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+          <Link href="/upload" className={`nav-drawer__link ${pathname === "/upload" ? "nav-drawer__link--active" : ""}`} onClick={() => { hapticTap(); setNavOpen(false); }}>
             Upload photo
           </Link>
-          <Link href="/gallery?tab=mine" className="nav-drawer__link" onClick={() => setNavOpen(false)}>
+          <Link href="/gallery?tab=mine" className="nav-drawer__link" onClick={() => { hapticTap(); setNavOpen(false); }}>
             My photos
           </Link>
-          <Link href="/gallery" className="nav-drawer__link" onClick={() => setNavOpen(false)}>
+          <Link href="/gallery" className="nav-drawer__link" onClick={() => { hapticTap(); setNavOpen(false); }}>
             Gallery
           </Link>
         </nav>
@@ -322,7 +326,7 @@ export default function UploadPage() {
               <div className="upload-actions">
                 <button
                   type="button"
-                  onClick={clearFiles}
+                  onClick={() => { hapticTap(); clearFiles(); }}
                   className="upload-actions__change"
                   aria-label="Clear selection"
                   disabled={uploading}
@@ -331,7 +335,7 @@ export default function UploadPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={uploadAll}
+                  onClick={() => { hapticTap(); uploadAll(); }}
                   className="upload-actions__submit"
                   disabled={uploading}
                 >
@@ -373,7 +377,7 @@ export default function UploadPage() {
                 <p className="upload-message__text">{error}</p>
                 <button
                   type="button"
-                  onClick={() => setError(null)}
+                  onClick={() => { hapticTap(); setError(null); }}
                   className="upload-message__retry"
                 >
                   Try again

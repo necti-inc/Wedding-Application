@@ -7,6 +7,7 @@ import Image from "next/image";
 import JSZip from "jszip";
 import { fetchListPhotos, deletePhoto, fetchDownloaded, addDownloaded } from "@/lib/firebase";
 import { getSessionPhone, isOwner } from "@/lib/session";
+import { hapticTap } from "@/lib/haptic";
 import PhoneGate from "@/components/PhoneGate";
 
 /** Fire confetti from the top (Linktree-style). Loads canvas-confetti only on client. */
@@ -559,7 +560,7 @@ export default function GalleryPage() {
           <button
             type="button"
             className="gallery-header__menu-btn"
-            onClick={() => setNavOpen(true)}
+            onClick={() => { hapticTap(); setNavOpen(true); }}
             aria-label="Open menu"
           >
             <HamburgerIcon />
@@ -570,7 +571,7 @@ export default function GalleryPage() {
       {/* Side drawer navigation */}
       <div
         className={`nav-drawer-overlay ${navOpen ? "nav-drawer-overlay--open" : ""}`}
-        onClick={() => setNavOpen(false)}
+        onClick={() => { hapticTap(); setNavOpen(false); }}
         onKeyDown={(e) => e.key === "Escape" && setNavOpen(false)}
         role="button"
         tabIndex={-1}
@@ -585,23 +586,23 @@ export default function GalleryPage() {
           <button
             type="button"
             className="nav-drawer__close"
-            onClick={() => setNavOpen(false)}
+            onClick={() => { hapticTap(); setNavOpen(false); }}
             aria-label="Close menu"
           >
             <CloseIcon />
           </button>
         </div>
         <nav className="nav-drawer__nav">
-          <Link href="/" className={`nav-drawer__link ${pathname === "/" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+          <Link href="/" className={`nav-drawer__link ${pathname === "/" ? "nav-drawer__link--active" : ""}`} onClick={() => { hapticTap(); setNavOpen(false); }}>
             Home
           </Link>
-          <Link href="/upload" className={`nav-drawer__link ${pathname === "/upload" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+          <Link href="/upload" className={`nav-drawer__link ${pathname === "/upload" ? "nav-drawer__link--active" : ""}`} onClick={() => { hapticTap(); setNavOpen(false); }}>
             Upload photo
           </Link>
-          <Link href="/gallery?tab=mine" className={`nav-drawer__link ${pathname === "/gallery" && tab === "mine" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+          <Link href="/gallery?tab=mine" className={`nav-drawer__link ${pathname === "/gallery" && tab === "mine" ? "nav-drawer__link--active" : ""}`} onClick={() => { hapticTap(); setNavOpen(false); }}>
             My photos
           </Link>
-          <Link href="/gallery" className={`nav-drawer__link ${pathname === "/gallery" && tab !== "mine" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+          <Link href="/gallery" className={`nav-drawer__link ${pathname === "/gallery" && tab !== "mine" ? "nav-drawer__link--active" : ""}`} onClick={() => { hapticTap(); setNavOpen(false); }}>
             Gallery
           </Link>
         </nav>
@@ -623,7 +624,7 @@ export default function GalleryPage() {
                   role="tab"
                   aria-selected={tab === "all"}
                   className={`gallery-tabs__tab ${tab === "all" ? "gallery-tabs__tab--active" : ""}`}
-                  onClick={() => { setTab("all"); setDisplayCount(BATCH_SIZE); }}
+                  onClick={() => { hapticTap(); setTab("all"); setDisplayCount(BATCH_SIZE); }}
                 >
                   All
                 </button>
@@ -632,7 +633,7 @@ export default function GalleryPage() {
                   role="tab"
                   aria-selected={tab === "mine"}
                   className={`gallery-tabs__tab ${tab === "mine" ? "gallery-tabs__tab--active" : ""}`}
-                  onClick={() => { setTab("mine"); setDisplayCount(BATCH_SIZE); }}
+                  onClick={() => { hapticTap(); setTab("mine"); setDisplayCount(BATCH_SIZE); }}
                 >
                   My photos {myCount > 0 ? `(${myCount})` : ""}
                 </button>
@@ -643,7 +644,7 @@ export default function GalleryPage() {
                 </p>
                 <button
                   type="button"
-                  onClick={handleSelectAll}
+                  onClick={() => { hapticTap(); handleSelectAll(); }}
                   className="gallery-select-all-btn"
                   aria-label={allSelectableSelected ? "Deselect all photos" : `Select all ${selectablePhotos.length} photos`}
                 >
@@ -663,14 +664,14 @@ export default function GalleryPage() {
                 role="tab"
                 aria-selected={tab === "all"}
                 className={`gallery-tabs__tab ${tab === "all" ? "gallery-tabs__tab--active" : ""}`}
-                onClick={() => { setTab("all"); setDisplayCount(BATCH_SIZE); }}
+                onClick={() => { hapticTap(); setTab("all"); setDisplayCount(BATCH_SIZE); }}
               >
                 All
               </button>
               <button
                 type="button"
                 className={`gallery-float-filters__select-btn ${selectedIds.size > 0 ? "gallery-float-filters__select-btn--active" : ""}`}
-                onClick={() => (selectedIds.size > 0 ? setShowSelectActionModal(true) : handleSelectAll())}
+                onClick={() => { hapticTap(); selectedIds.size > 0 ? setShowSelectActionModal(true) : handleSelectAll(); }}
                 aria-label={selectedIds.size > 0 ? `${selectedIds.size} selected – open options` : `Select all ${selectablePhotos.length} photos`}
               >
                 {selectedIds.size === 0
@@ -685,7 +686,7 @@ export default function GalleryPage() {
             {showSelectActionModal && selectedIds.size > 0 && (
               <div
                 className="gallery-select-action-overlay"
-                onClick={() => setShowSelectActionModal(false)}
+                onClick={() => { hapticTap(); setShowSelectActionModal(false); }}
                 onKeyDown={(e) => e.key === "Escape" && setShowSelectActionModal(false)}
                 role="dialog"
                 tabIndex={-1}
@@ -696,7 +697,7 @@ export default function GalleryPage() {
                   <button
                     type="button"
                     className="gallery-select-action-close"
-                    onClick={() => setShowSelectActionModal(false)}
+                    onClick={() => { hapticTap(); setShowSelectActionModal(false); }}
                     aria-label="Close"
                   >
                     <CloseIcon />
@@ -709,6 +710,7 @@ export default function GalleryPage() {
                       type="button"
                       className="gallery-select-action-btn gallery-select-action-btn--primary"
                       onClick={() => {
+                        hapticTap();
                         setShowSelectActionModal(false);
                         downloadSelected();
                       }}
@@ -720,6 +722,7 @@ export default function GalleryPage() {
                       type="button"
                       className="gallery-select-action-btn gallery-select-action-btn--secondary"
                       onClick={() => {
+                        hapticTap();
                         setSelectedIds(new Set());
                         setShowSelectActionModal(false);
                       }}
@@ -743,7 +746,7 @@ export default function GalleryPage() {
         {!loading && error && (
           <div className="gallery-error-wrap">
             <p className="gallery-error">{error}</p>
-            <button type="button" onClick={loadPhotos} className="gallery-retry-btn">
+            <button type="button" onClick={() => { hapticTap(); loadPhotos(); }} className="gallery-retry-btn">
               Try again
             </button>
           </div>
@@ -778,6 +781,7 @@ export default function GalleryPage() {
                   <div
                     className="gallery-card__img-wrap"
                     onClick={() => {
+                      hapticTap();
                       if (photo.processing) return;
                       if (longPressTriggeredRef.current) {
                         longPressTriggeredRef.current = false;
@@ -801,6 +805,7 @@ export default function GalleryPage() {
                       if (photo.processing) return;
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
+                        hapticTap();
                         if (selectedIds.size > 0) {
                           toggleSelect(photo.id);
                         } else {
@@ -834,6 +839,7 @@ export default function GalleryPage() {
                         onClick={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
+                          hapticTap();
                           toggleSelect(photo.id);
                         }}
                         className={`gallery-card__check ${isDownloaded(photo) ? "gallery-card__check--downloaded" : selectedIds.has(photo.id) ? "gallery-card__check--on" : ""}`}
@@ -851,7 +857,7 @@ export default function GalleryPage() {
               <div className="gallery-load-more">
                 <button
                   type="button"
-                  onClick={loadMore}
+                  onClick={() => { hapticTap(); loadMore(); }}
                   className="gallery-load-more-btn"
                 >
                   Load more ({filteredPhotos.length - displayCount} remaining)
@@ -862,7 +868,7 @@ export default function GalleryPage() {
             {previewPhoto && (
               <div
                 className="gallery-preview-overlay"
-                onClick={() => { setPreviewPhoto(null); setPreviewImageLoaded(false); }}
+                onClick={() => { hapticTap(); setPreviewPhoto(null); setPreviewImageLoaded(false); }}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Photo preview"
@@ -880,7 +886,7 @@ export default function GalleryPage() {
                     <button
                       type="button"
                       className="gallery-preview-close"
-                      onClick={() => { setPreviewPhoto(null); setPreviewImageLoaded(false); }}
+                      onClick={() => { hapticTap(); setPreviewPhoto(null); setPreviewImageLoaded(false); }}
                       aria-label="Close"
                     >
                       <CloseIcon />
@@ -889,9 +895,7 @@ export default function GalleryPage() {
                       <button
                         type="button"
                         className="gallery-preview-btn"
-                        onClick={() => {
-                          downloadPhoto(previewPhoto);
-                        }}
+                        onClick={() => { hapticTap(); downloadPhoto(previewPhoto); }}
                         disabled={downloadingPhotoId === previewPhoto.id}
                       >
                         {downloadingPhotoId === previewPhoto.id ? "Downloading…" : "Download"}
@@ -900,7 +904,7 @@ export default function GalleryPage() {
                         <button
                           type="button"
                           className="gallery-preview-btn gallery-preview-btn--delete"
-                          onClick={() => handleDeletePhoto(previewPhoto)}
+                          onClick={() => { hapticTap(); handleDeletePhoto(previewPhoto); }}
                           disabled={deletingPhotoId === previewPhoto.id}
                           title="Delete photo"
                           aria-label={deletingPhotoId === previewPhoto.id ? "Removing…" : "Delete photo"}
@@ -927,7 +931,7 @@ export default function GalleryPage() {
                 <p className="gallery-float-download__error">{downloadError}</p>
                 <button
                   type="button"
-                  onClick={() => setDownloadError(null)}
+                  onClick={() => { hapticTap(); setDownloadError(null); }}
                   className="gallery-float-download__dismiss"
                   aria-label="Dismiss error"
                 >
@@ -939,7 +943,7 @@ export default function GalleryPage() {
               <>
                 <button
                   type="button"
-                  onClick={openSavePhotosSheet}
+                  onClick={() => { hapticTap(); openSavePhotosSheet(); }}
                   className="gallery-float-download__btn"
                 >
                   Tap to save
@@ -947,7 +951,7 @@ export default function GalleryPage() {
                 {selectedOwnCount > 0 && (
                   <button
                     type="button"
-                    onClick={() => setShowDeleteConfirmModal(true)}
+                    onClick={() => { hapticTap(); setShowDeleteConfirmModal(true); }}
                     className="gallery-float-download__delete"
                     disabled={downloading}
                     title="Delete selected"
@@ -961,7 +965,7 @@ export default function GalleryPage() {
               <>
                 <button
                   type="button"
-                  onClick={downloadSelected}
+                  onClick={() => { hapticTap(); downloadSelected(); }}
                   className="gallery-float-download__btn"
                   disabled={downloading || deletingSelected}
                 >
@@ -976,7 +980,7 @@ export default function GalleryPage() {
                 {selectedOwnCount > 0 && (
                   <button
                     type="button"
-                    onClick={() => setShowDeleteConfirmModal(true)}
+                    onClick={() => { hapticTap(); setShowDeleteConfirmModal(true); }}
                     className="gallery-float-download__delete"
                     disabled={downloading || deletingSelected}
                     title="Delete selected"
@@ -994,7 +998,7 @@ export default function GalleryPage() {
         {showDeleteConfirmModal && selectedOwnCount > 0 && (
           <div
             className="gallery-select-action-overlay gallery-delete-confirm-overlay"
-            onClick={() => setShowDeleteConfirmModal(false)}
+            onClick={() => { hapticTap(); setShowDeleteConfirmModal(false); }}
             onKeyDown={(e) => e.key === "Escape" && setShowDeleteConfirmModal(false)}
             role="dialog"
             tabIndex={-1}
@@ -1005,7 +1009,7 @@ export default function GalleryPage() {
               <button
                 type="button"
                 className="gallery-select-action-close"
-                onClick={() => setShowDeleteConfirmModal(false)}
+                onClick={() => { hapticTap(); setShowDeleteConfirmModal(false); }}
                 aria-label="Close"
               >
                 <CloseIcon />
@@ -1018,7 +1022,7 @@ export default function GalleryPage() {
                 <button
                   type="button"
                   className="gallery-select-action-btn gallery-delete-confirm-btn"
-                  onClick={() => deleteSelectedOwn()}
+                  onClick={() => { hapticTap(); deleteSelectedOwn(); }}
                   disabled={deletingSelected}
                 >
                   {deletingSelected ? "Deleting…" : selectedOwnCount === 1 ? "Delete photo" : `Delete ${selectedOwnCount} photos`}
@@ -1026,7 +1030,7 @@ export default function GalleryPage() {
                 <button
                   type="button"
                   className="gallery-select-action-btn gallery-select-action-btn--secondary"
-                  onClick={() => setShowDeleteConfirmModal(false)}
+                  onClick={() => { hapticTap(); setShowDeleteConfirmModal(false); }}
                 >
                   Cancel
                 </button>

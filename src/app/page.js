@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import icon from "./icon.png";
+import { hapticTap } from "@/lib/haptic";
 
 export default function Home() {
   return (
@@ -29,11 +32,11 @@ export default function Home() {
         <h1 className="landing__title">Close Family Cowboy & Cocktail Evening</h1>
         <p className="landing__subtitle">Share your photos and browse everyone’s memories.</p>
         <div className="landing__actions">
-          <Link href="/upload" className="landing__btn landing__btn--primary">
+          <Link href="/upload" className="landing__btn landing__btn--primary" onClick={hapticTap}>
             <span>Upload Photos</span>
             <span className="landing__arrow" aria-hidden>→</span>
           </Link>
-          <Link href="/gallery" className="landing__btn landing__btn--secondary">
+          <Link href="/gallery" className="landing__btn landing__btn--secondary" onClick={hapticTap}>
             <span>View Gallery</span>
             <span className="landing__arrow" aria-hidden>→</span>
           </Link>
