@@ -372,15 +372,32 @@ img {
   font-weight: 500;
 }
 
+/* Sticky bar: tabs + count + select all stick below header while grid scrolls */
+.gallery-filters-bar {
+  position: sticky;
+  top: calc(72px + env(safe-area-inset-top, 0px));
+  z-index: 15;
+  background: var(--bg);
+  padding-top: 6px;
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gallery-filters-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+  margin-bottom: 24px;
+}
+
 .gallery-page__count {
   font-size: 0.9375rem;
   color: var(--text-secondary);
   font-weight: 500;
-  margin: 8px 0 24px 0;
-}
-
-.gallery-select-all-wrap {
-  margin-bottom: 24px;
+  margin: 0;
 }
 
 .gallery-select-all-btn {

@@ -63,7 +63,7 @@ function fireUploadSuccessConfetti() {
   import("canvas-confetti").then(({ default: confetti }) => {
     const duration = 2000;
     const end = Date.now() + duration;
-    const colors = ["#E8D0F3", "#c9a0dc", "#2C2C34", "#1DB954"];
+    const colors = ["#D6BB5B", "#E5CF7A", "#B89A3D", "#D4DCCD"];
     (function frame() {
       confetti({
         particleCount: 3,

@@ -15,7 +15,7 @@ function fireSuccessConfetti() {
   import("canvas-confetti").then(({ default: confetti }) => {
     const duration = 2000;
     const end = Date.now() + duration;
-    const colors = ["#E8D0F3", "#c9a0dc", "#2C2C34", "#1DB954"];
+    const colors = ["#D6BB5B", "#E5CF7A", "#B89A3D", "#D4DCCD"];
     (function frame() {
       confetti({
         particleCount: 3,
@@ -585,7 +585,7 @@ export default function GalleryPage() {
         </div>
 
         {!loading && !error && photos.length > 0 && (
-          <>
+          <div className="gallery-filters-bar">
             <div className="gallery-tabs" role="tablist">
               <button
                 type="button"
@@ -606,10 +606,10 @@ export default function GalleryPage() {
                 My photos {myCount > 0 ? `(${myCount})` : ""}
               </button>
             </div>
-            <p className="gallery-page__count">
-              {photos.length} photo{photos.length === 1 ? "" : "s"} — browse and download.
-            </p>
-            <div className="gallery-select-all-wrap">
+            <div className="gallery-filters-row">
+              <p className="gallery-page__count">
+                {photos.length} photo{photos.length === 1 ? "" : "s"} — browse and download.
+              </p>
               <button
                 type="button"
                 onClick={handleSelectAll}
@@ -619,7 +619,7 @@ export default function GalleryPage() {
                 {allSelectableSelected ? "Deselect all" : `Select all (${selectablePhotos.length})`}
               </button>
             </div>
-          </>
+          </div>
         )}
 
         {loading && (
