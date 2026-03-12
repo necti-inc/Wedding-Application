@@ -120,7 +120,7 @@ export default function UploadPage() {
     setDone(false);
   }, []);
 
-  /** Run up to `limit` uploads at a time; when one finishes, start the next. */
+  /** Run up to `limit` uploads at a time; all run to completion, we track success/fail per file. */
   const uploadAll = useCallback(async () => {
     if (files.length === 0) return;
     setUploading(true);
@@ -137,6 +137,7 @@ export default function UploadPage() {
     const batchId = Date.now();
     let completed = 0;
 
+    /** Resolves with { index, success, error? } so we never reject – we collect all results. */
     const uploadOne = (file, i) => {
       const ext = (file.name.match(/\.(jpe?g|png|gif|webp)$/i) || [".jpg"])[1]?.toLowerCase() || "jpg";
       const path = `${UPLOADS_PREFIX}${batchId}-${i}.${ext}`;
@@ -145,59 +146,72 @@ export default function UploadPage() {
         contentType: file.type,
         customMetadata: phone ? { uploadedBy: phone } : {},
       };
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         const task = uploadBytesResumable(storageRef, file, metadata);
         task.on(
           "state_changed",
           () => {},
-          (err) => reject({ index: i + 1, total, error: err }),
+          (err) => resolve({ index: i, success: false, error: err }),
           () => {
             completed += 1;
             completedRef.current = completed;
-            resolve();
+            resolve({ index: i, success: true });
           }
         );
       });
     };
 
-    const runWithConcurrency = async (tasks, limit) => {
+    const runWithConcurrency = async (taskFns, limit) => {
       const executing = [];
-      for (const task of tasks) {
-        const p = Promise.resolve().then(task);
-        const done = p.then(() => {
+      const results = [];
+      for (const taskFn of taskFns) {
+        const p = Promise.resolve().then(taskFn).then((r) => {
+          results.push(r);
           executing.splice(executing.indexOf(done), 1);
+          return r;
         });
+        const done = p;
         executing.push(done);
         if (executing.length >= limit) await Promise.race(executing);
       }
       await Promise.all(executing);
+      return results;
     };
 
+    let results;
     try {
       const tasks = files.map((file, i) => () => uploadOne(file, i));
-      await runWithConcurrency(tasks, UPLOAD_CONCURRENCY);
-    } catch (err) {
-      const structured = err?.error != null && err?.index != null;
-      const errorObj = structured ? err.error : err;
-      const photoIndex = structured ? err.index : null;
-      setError(getUploadErrorMessage(errorObj, photoIndex, total));
-      setUploading(false);
+      results = await runWithConcurrency(tasks, UPLOAD_CONCURRENCY);
+    } finally {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
         progressIntervalRef.current = null;
       }
+    }
+
+    const succeeded = results.filter((r) => r.success);
+    const failed = results.filter((r) => !r.success);
+
+    if (failed.length === 0) {
+      setProgress({ current: total, total });
+      setUploading(false);
+      setDone(true);
+      setFiles([]);
+      fireUploadSuccessConfetti();
       return;
     }
 
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = null;
-    }
-    setProgress({ current: total, total });
+    // Partial failure: keep only failed files so "Try again" uploads only those (no duplicates)
+    const failedFiles = failed.map((r) => files[r.index]);
+    const firstError = failed[0].error;
+    setFiles(failedFiles);
+    setProgress({ current: succeeded.length, total });
     setUploading(false);
-    setDone(true);
-    setFiles([]);
-    fireUploadSuccessConfetti();
+    setError(
+      failed.length === total
+        ? getUploadErrorMessage(firstError, 1, total)
+        : `${failed.length} of ${total} photos didn’t upload. Try again to upload only the failed ${failed.length} photo${failed.length === 1 ? "" : "s"}.`
+    );
   }, [files, phone]);
 
   const count = files.length;

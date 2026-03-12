@@ -237,6 +237,35 @@ img {
   max-width: 420px;
 }
 
+.landing__icons-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0px;
+  margin-bottom: 16px;
+}
+
+.landing__icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.landing__icon-wrap--left .landing__icon {
+  transform: rotate(-12deg);
+}
+
+.landing__icon-wrap--right .landing__icon {
+  transform: rotate(12deg);
+}
+
+.landing__icon {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+}
+
 .landing__title {
   font-family: var(--font-great-vibes), "Great Vibes", cursive;
   font-size: clamp(2.25rem, 7.5vw, 3.25rem);
