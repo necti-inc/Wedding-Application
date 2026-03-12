@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ref, uploadBytesResumable } from "firebase/storage";
@@ -93,6 +93,8 @@ export default function UploadPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState(null);
   const [navOpen, setNavOpen] = useState(false);
+  const completedRef = useRef(0);
+  const progressIntervalRef = useRef(null);
 
   useEffect(() => {
     setPhone(getSessionPhone());
@@ -123,10 +125,16 @@ export default function UploadPage() {
     if (files.length === 0) return;
     setUploading(true);
     setError(null);
-    setProgress({ current: 0, total: files.length });
+    const total = files.length;
+    completedRef.current = 0;
+    setProgress({ current: 0, total });
+
+    // Smooth progress: tick every 100ms so the UI updates continuously
+    progressIntervalRef.current = setInterval(() => {
+      setProgress((p) => ({ ...p, current: completedRef.current }));
+    }, 100);
 
     const batchId = Date.now();
-    const total = files.length;
     let completed = 0;
 
     const uploadOne = (file, i) => {
@@ -145,7 +153,7 @@ export default function UploadPage() {
           (err) => reject({ index: i + 1, total, error: err }),
           () => {
             completed += 1;
-            setProgress({ current: completed, total });
+            completedRef.current = completed;
             resolve();
           }
         );
@@ -174,9 +182,18 @@ export default function UploadPage() {
       const photoIndex = structured ? err.index : null;
       setError(getUploadErrorMessage(errorObj, photoIndex, total));
       setUploading(false);
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
       return;
     }
 
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    setProgress({ current: total, total });
     setUploading(false);
     setDone(true);
     setFiles([]);
@@ -330,6 +347,9 @@ export default function UploadPage() {
                     <span className="loading-spinner loading-spinner--sm" />
                   </span>
                   Uploading {progress.current} of {progress.total}…
+                </p>
+                <p className="upload-progress__hint">
+                  Please stay on this page while you are uploading photos to ensure the upload fully processes.
                 </p>
               </div>
             )}
