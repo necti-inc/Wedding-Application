@@ -40,6 +40,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Ensure area above header (status bar / safe area) is dark on mobile */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--header-bg);
+  z-index: 9999;
+  pointer-events: none;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -380,23 +393,16 @@ img {
   font-weight: 500;
 }
 
-/* Sticky bar: tabs + count + select all stick below header while grid scrolls */
+/* In-flow filters: tabs + count + select all (no sticky; float appears on scroll) */
 .gallery-filters-bar {
-  position: sticky;
-  top: calc(72px + env(safe-area-inset-top, 0px));
-  z-index: 15;
-  background: var(--bg);
-  padding-top: 6px;
-  padding-bottom: 16px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
 }
 
 .gallery-filters-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   margin-top: 8px;
   margin-bottom: 24px;
 }
@@ -951,10 +957,62 @@ img {
 }
 
 /* ========== Gallery (Google Photos–style) ========== */
+/* Full-bleed image section: outer container has rounded top; first row cards match for smooth corners */
+.gallery-photos-section {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  background: var(--text);
+  padding-top: 0;
+  padding-bottom: 24px;
+  isolation: isolate;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  overflow: hidden;
+}
+
+.gallery-photos-section .gallery-grid {
+  padding: 0;
+  width: 100%;
+  gap: 1.5px;
+}
+
+/* First row: rounded top corners on the cards so the curve is smooth (images clip inside card) */
+.gallery-photos-section .gallery-grid .gallery-card:first-child {
+  border-top-left-radius: 18px;
+}
+
+.gallery-photos-section .gallery-grid .gallery-card:nth-child(5) {
+  border-top-right-radius: 18px;
+}
+
+@media (max-width: 1200px) {
+  .gallery-photos-section .gallery-grid .gallery-card:nth-child(5) {
+    border-top-right-radius: 0;
+  }
+
+  .gallery-photos-section .gallery-grid .gallery-card:nth-child(4) {
+    border-top-right-radius: 18px;
+  }
+}
+
+.gallery-photos-section .gallery-load-more {
+  padding: 20px 24px 8px;
+}
+
+.gallery-photos-section .gallery-load-more-btn {
+  color: var(--text-on-accent);
+  background: var(--lavender);
+}
+
+.gallery-photos-section .gallery-load-more-btn:hover {
+  background: var(--lavender-hover);
+}
+
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
+  gap: 1.5px;
 }
 
 @media (max-width: 1200px) {
@@ -966,20 +1024,20 @@ img {
 @media (max-width: 768px) {
   .gallery-grid {
     grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
+    gap: 1.5px;
   }
 }
 
 @media (max-width: 480px) {
   .gallery-grid {
     grid-template-columns: repeat(4, 1fr);
-    gap: 2px;
+    gap: 1.5px;
   }
 }
 
 .gallery-card {
   background: var(--bg);
-  border-radius: 2px;
+  border-radius: 0;
   overflow: hidden;
   border: none;
 }
@@ -1010,7 +1068,7 @@ img {
 
 /* Selected: more spacing so selection is clear, rounded corners */
 .gallery-card--selected .gallery-card__img-wrap {
-  background: rgba(212, 220, 205, 0.12);
+  background: #D4DCCD;
   padding: 5%;
   box-sizing: border-box;
 }
@@ -1074,6 +1132,81 @@ img {
   background: var(--lavender);
   color: var(--text-on-accent);
   border-color: var(--lavender-deep);
+}
+
+/* Floating filter pill – appears when user scrolls (top center, like download at bottom) */
+.gallery-float-filters {
+  position: fixed;
+  top: calc(72px + env(safe-area-inset-top, 0px) + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  z-index: 19;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border-radius: 28px;
+  box-shadow: var(--shadow-hover);
+  border: 1px solid var(--border);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.gallery-float-filters--visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.gallery-float-filters .gallery-tabs__tab {
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.gallery-float-filters__select-btn {
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.gallery-float-filters__select-btn:hover {
+  color: var(--text);
+  border-color: var(--lavender-deep);
+}
+
+.gallery-float-filters__select-btn--active {
+  border-color: var(--lavender-deep);
+  color: var(--lavender);
+}
+
+.gallery-float-filters__select-btn--active:hover {
+  color: var(--lavender-hover);
+}
+
+@media (max-width: 380px) {
+
+  .gallery-float-filters .gallery-tabs__tab,
+  .gallery-float-filters__select-btn {
+    padding: 8px 10px;
+    font-size: 0.8125rem;
+  }
 }
 
 /* Selection – Google Photos style: blue circle + check when selected, hollow grey when not */
@@ -1243,6 +1376,131 @@ img {
 
 .gallery-float-download__dismiss:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* Modal: "N photos selected" – Save all or Deselect */
+.gallery-select-action-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: gallery-preview-fade 0.2s ease;
+}
+
+.gallery-select-action-modal {
+  position: relative;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-hover);
+  border: 1px solid var(--border);
+  padding: 24px;
+  padding-top: 48px;
+  max-width: 320px;
+  width: 100%;
+}
+
+.gallery-select-action-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.gallery-select-action-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.gallery-select-action-close:hover {
+  color: var(--text);
+  border-color: var(--lavender-deep);
+  background: rgba(212, 220, 205, 0.08);
+}
+
+.gallery-select-action-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 20px 0;
+  text-align: center;
+}
+
+.gallery-select-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gallery-select-action-btn {
+  padding: 14px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.2s, color 0.2s;
+}
+
+.gallery-select-action-btn--primary {
+  background: var(--lavender);
+  color: var(--text-on-accent);
+}
+
+.gallery-select-action-btn--primary:hover:not(:disabled) {
+  background: var(--lavender-hover);
+}
+
+.gallery-select-action-btn--primary:disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+
+.gallery-select-action-btn--secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.gallery-select-action-btn--secondary:hover {
+  color: var(--text);
+  border-color: var(--lavender-deep);
+}
+
+.gallery-delete-confirm-subtitle {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin: 0 0 20px 0;
+  text-align: center;
+}
+
+.gallery-delete-confirm-btn {
+  background: #ea4335;
+  color: #fff;
+}
+
+.gallery-delete-confirm-btn:hover:not(:disabled) {
+  background: #c5221f;
+}
+
+.gallery-delete-confirm-btn:disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
 }
 
 /* Preview modal – full image, download, delete (if own) */

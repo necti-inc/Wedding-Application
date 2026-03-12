@@ -171,6 +171,10 @@ export default function GalleryPage() {
   const [shareReadyPhotoIds, setShareReadyPhotoIds] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [downloadedIds, setDownloadedIds] = useState(() => new Set());
+  const [showFloatFilters, setShowFloatFilters] = useState(false);
+  const [showSelectActionModal, setShowSelectActionModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [deletingSelected, setDeletingSelected] = useState(false);
   const successTimeoutRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
@@ -256,6 +260,31 @@ export default function GalleryPage() {
       .catch(() => {});
   }, [phone]);
 
+  /** Show floating filter pill when user scrolls down past intro. */
+  useEffect(() => {
+    const threshold = 180;
+    const onScroll = () => setShowFloatFilters(window.scrollY > threshold);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  /** Close select-action modal on Escape. */
+  useEffect(() => {
+    if (!showSelectActionModal) return;
+    const onKeyDown = (e) => e.key === "Escape" && setShowSelectActionModal(false);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [showSelectActionModal]);
+
+  /** Close delete-confirm modal on Escape. */
+  useEffect(() => {
+    if (!showDeleteConfirmModal) return;
+    const onKeyDown = (e) => e.key === "Escape" && setShowDeleteConfirmModal(false);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [showDeleteConfirmModal]);
+
   const filteredPhotos = useMemo(
     () => (tab === "mine" && phone ? photos.filter((p) => isOwner(p, phone)) : photos),
     [photos, tab, phone]
@@ -292,13 +321,14 @@ export default function GalleryPage() {
     [phone, deletingPhotoId, showSuccess]
   );
 
-  /** Delete all selected photos that the user owns (floating bar red button). */
+  /** Delete all selected photos that the user owns (after confirm modal). */
   const deleteSelectedOwn = useCallback(async () => {
-    if (!phone || downloading) return;
+    if (!phone || deletingSelected) return;
     const selected = filteredPhotos.filter((p) => selectedIds.has(p.id) && isOwner(p, phone));
     if (selected.length === 0) return;
     setDownloadError(null);
-    setDownloading(true);
+    setShowDeleteConfirmModal(false);
+    setDeletingSelected(true);
     const idsToRemove = new Set(selected.map((p) => p.id));
     try {
       for (const photo of selected) {
@@ -312,9 +342,9 @@ export default function GalleryPage() {
     } catch (err) {
       setDownloadError(err.message || "Could not delete some photos.");
     } finally {
-      setDownloading(false);
+      setDeletingSelected(false);
     }
-  }, [phone, visiblePhotos, selectedIds, downloading, showSuccess]);
+  }, [phone, filteredPhotos, selectedIds, deletingSelected, showSuccess]);
 
   const selectedOwnCount = useMemo(
     () => filteredPhotos.filter((p) => selectedIds.has(p.id) && isOwner(p, phone)).length,
@@ -585,8 +615,49 @@ export default function GalleryPage() {
         </div>
 
         {!loading && !error && photos.length > 0 && (
-          <div className="gallery-filters-bar">
-            <div className="gallery-tabs" role="tablist">
+          <>
+            <div className="gallery-filters-bar">
+              <div className="gallery-tabs" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === "all"}
+                  className={`gallery-tabs__tab ${tab === "all" ? "gallery-tabs__tab--active" : ""}`}
+                  onClick={() => { setTab("all"); setDisplayCount(BATCH_SIZE); }}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === "mine"}
+                  className={`gallery-tabs__tab ${tab === "mine" ? "gallery-tabs__tab--active" : ""}`}
+                  onClick={() => { setTab("mine"); setDisplayCount(BATCH_SIZE); }}
+                >
+                  My photos {myCount > 0 ? `(${myCount})` : ""}
+                </button>
+              </div>
+              <div className="gallery-filters-row">
+                <p className="gallery-page__count">
+                  {photos.length} photo{photos.length === 1 ? "" : "s"} — browse and download.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  className="gallery-select-all-btn"
+                  aria-label={allSelectableSelected ? "Deselect all photos" : `Select all ${selectablePhotos.length} photos`}
+                >
+                  {allSelectableSelected ? "Deselect all" : `Select all (${selectablePhotos.length})`}
+                </button>
+              </div>
+            </div>
+
+            {/* Floating filter pill – All tab + Select all / count button */}
+            <div
+              className={`gallery-float-filters ${showFloatFilters ? "gallery-float-filters--visible" : ""}`}
+              role="group"
+              aria-label="Gallery actions"
+            >
               <button
                 type="button"
                 role="tab"
@@ -598,28 +669,68 @@ export default function GalleryPage() {
               </button>
               <button
                 type="button"
-                role="tab"
-                aria-selected={tab === "mine"}
-                className={`gallery-tabs__tab ${tab === "mine" ? "gallery-tabs__tab--active" : ""}`}
-                onClick={() => { setTab("mine"); setDisplayCount(BATCH_SIZE); }}
+                className={`gallery-float-filters__select-btn ${selectedIds.size > 0 ? "gallery-float-filters__select-btn--active" : ""}`}
+                onClick={() => (selectedIds.size > 0 ? setShowSelectActionModal(true) : handleSelectAll())}
+                aria-label={selectedIds.size > 0 ? `${selectedIds.size} selected – open options` : `Select all ${selectablePhotos.length} photos`}
               >
-                My photos {myCount > 0 ? `(${myCount})` : ""}
+                {selectedIds.size === 0
+                  ? "Select all"
+                  : selectedIds.size === 1
+                    ? "1 photo selected"
+                    : `${selectedIds.size} photos selected`}
               </button>
             </div>
-            <div className="gallery-filters-row">
-              <p className="gallery-page__count">
-                {photos.length} photo{photos.length === 1 ? "" : "s"} — browse and download.
-              </p>
-              <button
-                type="button"
-                onClick={handleSelectAll}
-                className="gallery-select-all-btn"
-                aria-label={allSelectableSelected ? "Deselect all photos" : `Select all ${selectablePhotos.length} photos`}
+
+            {/* Modal when user taps "N photos selected" – Save or Deselect */}
+            {showSelectActionModal && selectedIds.size > 0 && (
+              <div
+                className="gallery-select-action-overlay"
+                onClick={() => setShowSelectActionModal(false)}
+                onKeyDown={(e) => e.key === "Escape" && setShowSelectActionModal(false)}
+                role="dialog"
+                tabIndex={-1}
+                aria-modal="true"
+                aria-labelledby="gallery-select-action-title"
               >
-                {allSelectableSelected ? "Deselect all" : `Select all (${selectablePhotos.length})`}
-              </button>
-            </div>
-          </div>
+                <div className="gallery-select-action-modal" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="gallery-select-action-close"
+                    onClick={() => setShowSelectActionModal(false)}
+                    aria-label="Close"
+                  >
+                    <CloseIcon />
+                  </button>
+                  <h2 id="gallery-select-action-title" className="gallery-select-action-title">
+                    {selectedIds.size === 1 ? "1 photo selected" : `${selectedIds.size} photos selected`}
+                  </h2>
+                  <div className="gallery-select-action-buttons">
+                    <button
+                      type="button"
+                      className="gallery-select-action-btn gallery-select-action-btn--primary"
+                      onClick={() => {
+                        setShowSelectActionModal(false);
+                        downloadSelected();
+                      }}
+                      disabled={downloading}
+                    >
+                      {downloading ? "Preparing…" : "Save all selected photos"}
+                    </button>
+                    <button
+                      type="button"
+                      className="gallery-select-action-btn gallery-select-action-btn--secondary"
+                      onClick={() => {
+                        setSelectedIds(new Set());
+                        setShowSelectActionModal(false);
+                      }}
+                    >
+                      Deselect photos
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {loading && (
@@ -657,6 +768,7 @@ export default function GalleryPage() {
 
         {!loading && visiblePhotos.length > 0 && (
           <>
+            <section className="gallery-photos-section" aria-label="Photo grid">
             <div className="gallery-grid">
               {visiblePhotos.map((photo) => (
                 <div
@@ -735,7 +847,18 @@ export default function GalleryPage() {
                 </div>
               ))}
             </div>
-
+            {hasMore && (
+              <div className="gallery-load-more">
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  className="gallery-load-more-btn"
+                >
+                  Load more ({filteredPhotos.length - displayCount} remaining)
+                </button>
+              </div>
+            )}
+            </section>
             {previewPhoto && (
               <div
                 className="gallery-preview-overlay"
@@ -794,17 +917,6 @@ export default function GalleryPage() {
                 </div>
               </div>
             )}
-            {hasMore && (
-              <div className="gallery-load-more">
-                <button
-                  type="button"
-                  onClick={loadMore}
-                  className="gallery-load-more-btn"
-                >
-                  Load more ({filteredPhotos.length - displayCount} remaining)
-                </button>
-              </div>
-            )}
           </>
         )}
 
@@ -835,7 +947,7 @@ export default function GalleryPage() {
                 {selectedOwnCount > 0 && (
                   <button
                     type="button"
-                    onClick={deleteSelectedOwn}
+                    onClick={() => setShowDeleteConfirmModal(true)}
                     className="gallery-float-download__delete"
                     disabled={downloading}
                     title="Delete selected"
@@ -851,20 +963,22 @@ export default function GalleryPage() {
                   type="button"
                   onClick={downloadSelected}
                   className="gallery-float-download__btn"
-                  disabled={downloading}
+                  disabled={downloading || deletingSelected}
                 >
-                  {downloading
-                    ? (isMobile ? "Preparing…" : "Preparing download…")
-                    : isMobile
-                      ? "Save Photos"
-                      : `Download ${selectedCount} photo${selectedCount !== 1 ? "s" : ""}`}
+                  {deletingSelected
+                    ? (selectedOwnCount === 1 ? "Deleting 1 photo…" : `Deleting ${selectedOwnCount} photos…`)
+                    : downloading
+                      ? (isMobile ? "Preparing…" : "Preparing download…")
+                      : isMobile
+                        ? "Save Photos"
+                        : `Download ${selectedCount} photo${selectedCount !== 1 ? "s" : ""}`}
                 </button>
                 {selectedOwnCount > 0 && (
                   <button
                     type="button"
-                    onClick={deleteSelectedOwn}
+                    onClick={() => setShowDeleteConfirmModal(true)}
                     className="gallery-float-download__delete"
-                    disabled={downloading}
+                    disabled={downloading || deletingSelected}
                     title="Delete selected"
                     aria-label={`Delete ${selectedOwnCount} photo${selectedOwnCount !== 1 ? "s" : ""}`}
                   >
@@ -873,6 +987,51 @@ export default function GalleryPage() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* Delete confirmation modal */}
+        {showDeleteConfirmModal && selectedOwnCount > 0 && (
+          <div
+            className="gallery-select-action-overlay gallery-delete-confirm-overlay"
+            onClick={() => setShowDeleteConfirmModal(false)}
+            onKeyDown={(e) => e.key === "Escape" && setShowDeleteConfirmModal(false)}
+            role="dialog"
+            tabIndex={-1}
+            aria-modal="true"
+            aria-labelledby="gallery-delete-confirm-title"
+          >
+            <div className="gallery-select-action-modal" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="gallery-select-action-close"
+                onClick={() => setShowDeleteConfirmModal(false)}
+                aria-label="Close"
+              >
+                <CloseIcon />
+              </button>
+              <h2 id="gallery-delete-confirm-title" className="gallery-select-action-title">
+                {selectedOwnCount === 1 ? "Delete 1 photo?" : `Delete ${selectedOwnCount} photos?`}
+              </h2>
+              <p className="gallery-delete-confirm-subtitle">This cannot be undone.</p>
+              <div className="gallery-select-action-buttons">
+                <button
+                  type="button"
+                  className="gallery-select-action-btn gallery-delete-confirm-btn"
+                  onClick={() => deleteSelectedOwn()}
+                  disabled={deletingSelected}
+                >
+                  {deletingSelected ? "Deleting…" : selectedOwnCount === 1 ? "Delete photo" : `Delete ${selectedOwnCount} photos`}
+                </button>
+                <button
+                  type="button"
+                  className="gallery-select-action-btn gallery-select-action-btn--secondary"
+                  onClick={() => setShowDeleteConfirmModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
