@@ -9,8 +9,38 @@ import { getSessionPhone } from "@/lib/session";
 import PhoneGate from "@/components/PhoneGate";
 
 const UPLOADS_PREFIX = "uploads/";
-/** Number of files uploading at once; balances speed vs browser/network limits. */
-const UPLOAD_CONCURRENCY = 8;
+/** Number of files uploading at once; higher = faster for large batches (backend processes each file in parallel). */
+const UPLOAD_CONCURRENCY = 20;
+
+/** Turn Firebase Storage (and other) errors into a short, user-friendly message. */
+function getUploadErrorMessage(err, photoIndex, total) {
+  const code = err?.code || "";
+  const msg = (err?.message || "Upload failed").toLowerCase();
+  const prefix = total > 1 && photoIndex != null ? `Photo ${photoIndex} of ${total}: ` : "";
+
+  if (code === "storage/unauthorized" || /permission|unauthorized/i.test(msg)) {
+    return prefix + "Permission denied. Check that the app has access to storage and try again.";
+  }
+  if (code === "storage/quota-exceeded" || /quota|full/i.test(msg)) {
+    return prefix + "Storage limit reached. Try fewer photos or try again later.";
+  }
+  if (code === "storage/retry-limit-exceeded" || /retry|timeout|deadline/i.test(msg)) {
+    return prefix + "Upload timed out. Check your connection and try again.";
+  }
+  if (code === "storage/canceled" || /cancel/i.test(msg)) {
+    return prefix + "Upload was canceled.";
+  }
+  if (code === "storage/unauthenticated") {
+    return prefix + "Please sign in or enter your phone number and try again.";
+  }
+  if (/network|fetch|cors|connection|failed to fetch|load failed/i.test(msg)) {
+    return prefix + "Connection problem. Check your network and try again.";
+  }
+  if (/storage|firebase/i.test(code) || code) {
+    return prefix + "Upload failed. Try again or use fewer photos at once.";
+  }
+  return prefix + "Something went wrong. Try again.";
+}
 
 const CloseIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -112,7 +142,7 @@ export default function UploadPage() {
         task.on(
           "state_changed",
           () => {},
-          reject,
+          (err) => reject({ index: i + 1, total, error: err }),
           () => {
             completed += 1;
             setProgress({ current: completed, total });
@@ -139,15 +169,10 @@ export default function UploadPage() {
       const tasks = files.map((file, i) => () => uploadOne(file, i));
       await runWithConcurrency(tasks, UPLOAD_CONCURRENCY);
     } catch (err) {
-      const msg = err.message || "Upload failed";
-      const isCorsOrNetwork =
-        /cors|failed to fetch|network|load failed|unable to fetch/i.test(msg) ||
-        (err.code && String(err.code).toLowerCase().includes("storage"));
-      setError(
-        isCorsOrNetwork
-          ? "Upload couldn’t complete. Check your connection or try again later."
-          : "Something went wrong. Try again."
-      );
+      const structured = err?.error != null && err?.index != null;
+      const errorObj = structured ? err.error : err;
+      const photoIndex = structured ? err.index : null;
+      setError(getUploadErrorMessage(errorObj, photoIndex, total));
       setUploading(false);
       return;
     }
