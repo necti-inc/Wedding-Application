@@ -12,6 +12,12 @@ export const metadata = {
   description: "Share and view wedding photos",
 };
 
+export const viewport = {
+  themeColor: "#ffffff",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={plusJakarta.variable}>

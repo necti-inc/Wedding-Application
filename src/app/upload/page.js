@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ref, uploadBytesResumable } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { getSessionPhone } from "@/lib/session";
@@ -10,6 +11,21 @@ import PhoneGate from "@/components/PhoneGate";
 const UPLOADS_PREFIX = "uploads/";
 /** Number of files uploading at once; balances speed vs browser/network limits. */
 const UPLOAD_CONCURRENCY = 8;
+
+const CloseIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+const HamburgerIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
 
 /** Same confetti as gallery success – loads canvas-confetti on client. */
 function fireUploadSuccessConfetti() {
@@ -39,16 +55,24 @@ function fireUploadSuccessConfetti() {
 }
 
 export default function UploadPage() {
+  const pathname = usePathname();
   const [phone, setPhone] = useState(null);
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [done, setDone] = useState(false);
   const [error, setError] = useState(null);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     setPhone(getSessionPhone());
   }, []);
+
+  useEffect(() => {
+    if (navOpen) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [navOpen]);
 
   const handleSelect = useCallback((e) => {
     const chosen = Array.from(e.target.files || []);
@@ -151,14 +175,62 @@ export default function UploadPage() {
 
   return (
     <main className="page upload-page">
-      <header className="page__header">
-        <Link href="/" className="page__back">
-          ← Back
-        </Link>
+      <header className="gallery-header">
+        <div className="gallery-header__inner">
+          <h1 className="gallery-header__title">Cowboy Cocktail</h1>
+          <button
+            type="button"
+            className="gallery-header__menu-btn"
+            onClick={() => setNavOpen(true)}
+            aria-label="Open menu"
+          >
+            <HamburgerIcon />
+          </button>
+        </div>
       </header>
+
+      <div
+        className={`nav-drawer-overlay ${navOpen ? "nav-drawer-overlay--open" : ""}`}
+        onClick={() => setNavOpen(false)}
+        onKeyDown={(e) => e.key === "Escape" && setNavOpen(false)}
+        role="button"
+        tabIndex={-1}
+        aria-hidden={!navOpen}
+      />
+      <aside
+        className={`nav-drawer ${navOpen ? "nav-drawer--open" : ""}`}
+        aria-label="Navigation menu"
+      >
+        <div className="nav-drawer__header">
+          <span className="nav-drawer__title">Menu</span>
+          <button
+            type="button"
+            className="nav-drawer__close"
+            onClick={() => setNavOpen(false)}
+            aria-label="Close menu"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+        <nav className="nav-drawer__nav">
+          <Link href="/" className={`nav-drawer__link ${pathname === "/" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+            Home
+          </Link>
+          <Link href="/upload" className={`nav-drawer__link ${pathname === "/upload" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+            Upload photo
+          </Link>
+          <Link href="/gallery?tab=mine" className="nav-drawer__link" onClick={() => setNavOpen(false)}>
+            My photos
+          </Link>
+          <Link href="/gallery" className="nav-drawer__link" onClick={() => setNavOpen(false)}>
+            Gallery
+          </Link>
+        </nav>
+      </aside>
+
       <div className="upload-page__inner">
         <div className="upload-page__header">
-          <h1 className="upload-page__title">Upload Photos</h1>
+          <h2 className="upload-page__title">Upload Photos</h2>
           <p className="upload-page__subtitle">
             Add your favorite moments. Photos are saved in full size and a gallery-friendly version.
           </p>

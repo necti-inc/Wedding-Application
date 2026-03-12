@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import JSZip from "jszip";
 import { fetchListPhotos, deletePhoto } from "@/lib/firebase";
@@ -53,6 +54,15 @@ const CloseIcon = () => (
     <line x1="6" y1="6" x2="18" y2="18" />
   </svg>
 );
+
+const HamburgerIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
+
 const DOWNLOAD_FETCH_RETRIES = 2;
 const DOWNLOAD_FETCH_CONCURRENCY = 3;
 
@@ -140,10 +150,13 @@ function getImageFetchUrl(fullUrl) {
 }
 
 export default function GalleryPage() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [phone, setPhone] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [displayCount, setDisplayCount] = useState(BATCH_SIZE);
   const [tab, setTab] = useState("all");
+  const [navOpen, setNavOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -161,6 +174,17 @@ export default function GalleryPage() {
   useEffect(() => {
     setPhone(getSessionPhone());
   }, []);
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "mine") setTab("mine");
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (navOpen) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [navOpen]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
@@ -400,19 +424,66 @@ export default function GalleryPage() {
   }
 
   return (
-    <main className="page">
+    <main className="page gallery-page">
       {successMessage && (
         <div className="gallery-success-toast" role="status">
           {successMessage}
         </div>
       )}
-      <header className="page__header">
-        <Link href="/" className="page__back">
-          ← Back
-        </Link>
+      <header className="gallery-header">
+        <div className="gallery-header__inner">
+          <h1 className="gallery-header__title">Cowboy Cocktail</h1>
+          <button
+            type="button"
+            className="gallery-header__menu-btn"
+            onClick={() => setNavOpen(true)}
+            aria-label="Open menu"
+          >
+            <HamburgerIcon />
+          </button>
+        </div>
       </header>
+
+      {/* Side drawer navigation */}
+      <div
+        className={`nav-drawer-overlay ${navOpen ? "nav-drawer-overlay--open" : ""}`}
+        onClick={() => setNavOpen(false)}
+        onKeyDown={(e) => e.key === "Escape" && setNavOpen(false)}
+        role="button"
+        tabIndex={-1}
+        aria-hidden={!navOpen}
+      />
+      <aside
+        className={`nav-drawer ${navOpen ? "nav-drawer--open" : ""}`}
+        aria-label="Navigation menu"
+      >
+        <div className="nav-drawer__header">
+          <span className="nav-drawer__title">Menu</span>
+          <button
+            type="button"
+            className="nav-drawer__close"
+            onClick={() => setNavOpen(false)}
+            aria-label="Close menu"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+        <nav className="nav-drawer__nav">
+          <Link href="/" className={`nav-drawer__link ${pathname === "/" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+            Home
+          </Link>
+          <Link href="/upload" className={`nav-drawer__link ${pathname === "/upload" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+            Upload photo
+          </Link>
+          <Link href="/gallery?tab=mine" className={`nav-drawer__link ${pathname === "/gallery" && tab === "mine" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+            My photos
+          </Link>
+          <Link href="/gallery" className={`nav-drawer__link ${pathname === "/gallery" && tab !== "mine" ? "nav-drawer__link--active" : ""}`} onClick={() => setNavOpen(false)}>
+            Gallery
+          </Link>
+        </nav>
+      </aside>
       <div className="page__inner">
-        <h1 className="page__title">Gallery</h1>
         <p className="page__subtitle">
           {photos.length > 0
             ? `${photos.length} photo${photos.length === 1 ? "" : "s"} — browse and download.`
