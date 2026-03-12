@@ -400,7 +400,7 @@ img {
 /* Gallery page: sticky header + symmetric padding (no floating back button) */
 .gallery-page .page__inner {
   padding-top: 24px;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  padding-bottom: 0;
 }
 
 .gallery-page__header {
@@ -996,12 +996,13 @@ img {
 /* ========== Gallery (Google Photos–style) ========== */
 /* Full-bleed image section: outer container has rounded top; first row cards match for smooth corners */
 .gallery-photos-section {
+  position: relative;
   width: 100vw;
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
   background: var(--text);
   padding-top: 0;
-  padding-bottom: 24px;
+  padding-bottom: 0;
   isolation: isolate;
   border-top-left-radius: 18px;
   border-top-right-radius: 18px;
@@ -1034,7 +1035,21 @@ img {
 }
 
 .gallery-photos-section .gallery-load-more {
-  padding: 20px 24px 8px;
+  position: absolute;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  padding: 0 24px;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.gallery-photos-section .gallery-load-more .gallery-load-more-btn {
+  pointer-events: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
 
 .gallery-photos-section .gallery-load-more-btn {
