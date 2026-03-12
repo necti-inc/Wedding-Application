@@ -1,4 +1,4 @@
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans, Great_Vibes } from "next/font/google";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -7,9 +7,23 @@ const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
 });
 
+const greatVibes = Great_Vibes({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-great-vibes",
+});
+
 export const metadata = {
-  title: "Our Wedding Photos",
-  description: "Share and view wedding photos",
+  title: "Close Family Cowboy & Cocktail Evening Photo Gallery",
+  description: "Share and view photos from our Close Family Cowboy & Cocktail Evening",
+  openGraph: {
+    title: "Close Family Cowboy & Cocktail Evening Photo Gallery",
+    description: "Share and view photos from our Close Family Cowboy & Cocktail Evening",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Close Family Cowboy & Cocktail Evening Photo Gallery",
+  },
 };
 
 export const viewport = {
@@ -20,7 +34,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={plusJakarta.variable}>
+    <html lang="en" className={`${plusJakarta.variable} ${greatVibes.variable}`}>
       <body>
         <a href="#main" className="skip-link">
           Skip to main content

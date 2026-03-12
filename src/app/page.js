@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <main className="landing">
       <div className="landing__content">
-        <h1 className="landing__title">Our Wedding</h1>
+        <h1 className="landing__title">Close Family Cowboy & Cocktail Evening</h1>
         <p className="landing__subtitle">Share your photos and browse everyone’s memories.</p>
         <div className="landing__actions">
           <Link href="/upload" className="landing__btn landing__btn--primary">
