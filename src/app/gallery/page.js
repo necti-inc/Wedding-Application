@@ -170,6 +170,8 @@ export default function GalleryPage() {
   const [shareReadyFiles, setShareReadyFiles] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const successTimeoutRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
 
   useEffect(() => {
     setPhone(getSessionPhone());
@@ -328,6 +330,31 @@ export default function GalleryPage() {
     });
   }, []);
 
+  const LONG_PRESS_MS = 450;
+
+  const handleCardPointerDown = useCallback((photoId) => {
+    longPressTriggeredRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      toggleSelect(photoId);
+      longPressTriggeredRef.current = true;
+      longPressTimerRef.current = null;
+    }, LONG_PRESS_MS);
+  }, [toggleSelect]);
+
+  const handleCardPointerUp = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleCardPointerLeave = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
   /** On mobile, share sheet must open from a user tap. Second tap opens share (first tap prepared the files). */
   const openSavePhotosSheet = useCallback(async () => {
     if (!shareReadyFiles?.length) return;
@@ -484,33 +511,39 @@ export default function GalleryPage() {
         </nav>
       </aside>
       <div className="page__inner">
-        <p className="page__subtitle">
-          {photos.length > 0
-            ? `${photos.length} photo${photos.length === 1 ? "" : "s"} — browse and download.`
-            : "Browse and download wedding photos."}
-        </p>
+        <div className="gallery-page__header">
+          <h2 className="gallery-page__title">Welcome to the Gallery</h2>
+          <p className="gallery-page__subtitle">
+            Browse everyone’s photos from the day — tap any photo to view it full size, or select multiple to download or save to your device. Use the tabs below to see all photos or just the ones you uploaded.
+          </p>
+        </div>
 
         {!loading && !error && photos.length > 0 && (
-          <div className="gallery-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "all"}
-              className={`gallery-tabs__tab ${tab === "all" ? "gallery-tabs__tab--active" : ""}`}
-              onClick={() => { setTab("all"); setDisplayCount(BATCH_SIZE); }}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "mine"}
-              className={`gallery-tabs__tab ${tab === "mine" ? "gallery-tabs__tab--active" : ""}`}
-              onClick={() => { setTab("mine"); setDisplayCount(BATCH_SIZE); }}
-            >
-              My photos {myCount > 0 ? `(${myCount})` : ""}
-            </button>
-          </div>
+          <>
+            <div className="gallery-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "all"}
+                className={`gallery-tabs__tab ${tab === "all" ? "gallery-tabs__tab--active" : ""}`}
+                onClick={() => { setTab("all"); setDisplayCount(BATCH_SIZE); }}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "mine"}
+                className={`gallery-tabs__tab ${tab === "mine" ? "gallery-tabs__tab--active" : ""}`}
+                onClick={() => { setTab("mine"); setDisplayCount(BATCH_SIZE); }}
+              >
+                My photos {myCount > 0 ? `(${myCount})` : ""}
+              </button>
+            </div>
+            <p className="gallery-page__count">
+              {photos.length} photo{photos.length === 1 ? "" : "s"} — browse and download.
+            </p>
+          </>
         )}
 
         {loading && (
@@ -557,6 +590,10 @@ export default function GalleryPage() {
                   <div
                     className="gallery-card__img-wrap"
                     onClick={() => {
+                      if (longPressTriggeredRef.current) {
+                        longPressTriggeredRef.current = false;
+                        return;
+                      }
                       if (selectedIds.size > 0) {
                         toggleSelect(photo.id);
                       } else {
@@ -564,6 +601,10 @@ export default function GalleryPage() {
                         setPreviewImageLoaded(false);
                       }
                     }}
+                    onPointerDown={() => handleCardPointerDown(photo.id)}
+                    onPointerUp={handleCardPointerUp}
+                    onPointerLeave={handleCardPointerLeave}
+                    onPointerCancel={handleCardPointerUp}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
@@ -577,7 +618,7 @@ export default function GalleryPage() {
                         }
                       }
                     }}
-                    aria-label={selectedIds.size > 0 ? (selectedIds.has(photo.id) ? "Deselect photo" : "Select photo") : "View photo"}
+                    aria-label={selectedIds.size > 0 ? (selectedIds.has(photo.id) ? "Deselect photo" : "Select photo") : "View photo (long-press to select)"}
                   >
                     <div className="gallery-card__img-inner">
                       <Image
