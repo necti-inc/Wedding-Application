@@ -189,24 +189,28 @@
   !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/app/globals.css ***!
   \*****************************************************************************************************************************************************************************************************************************************************************/
 :root {
-  /* Light theme – off-white base, charcoal text, soft lavender accent */
-  --bg: #F5F5F7;
-  --bg-card: #ffffff;
-  --text: #2C2C34;
-  --text-secondary: #6e6e73;
-  --border: rgba(0, 0, 0, 0.08);
+  /* Dark theme – charcoal base, sage text, gold accent */
+  --bg: #3C3D3C;
+  --bg-card: #2a2b2a;
+  --text: #D4DCCD;
+  --text-secondary: rgba(212, 220, 205, 0.78);
+  --border: rgba(212, 220, 205, 0.18);
 
-  --lavender: #E8D0F3;
-  --lavender-hover: #dfc0eb;
-  --lavender-deep: #c9a0dc;
+  --lavender: #D6BB5B;
+  --lavender-hover: #E5CF7A;
+  --lavender-deep: #B89A3D;
   --coral: #e07a7a;
   --coral-dark: #c53030;
+
+  --header-bg: #2A2B2A;
+  --header-divider: #D4DCCD;
+  --text-on-accent: #1a1a1a;
 
   --radius: 16px;
   --radius-sm: 12px;
   --radius-pill: 9999px;
-  --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  --shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  --shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.35);
   --font: var(--font-plus-jakarta), 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
@@ -248,7 +252,7 @@ img {
   left: 16px;
   padding: 12px 20px;
   background: var(--lavender-deep);
-  color: var(--text);
+  color: var(--text-on-accent);
   font-weight: 600;
   border-radius: var(--radius-sm);
   z-index: 100;
@@ -312,7 +316,7 @@ img {
 .phone-gate__input:focus {
   outline: none;
   border-color: var(--lavender-deep);
-  box-shadow: 0 0 0 2px rgba(201, 160, 220, 0.3);
+  box-shadow: 0 0 0 2px rgba(184, 154, 61, 0.4);
 }
 
 .phone-gate__error {
@@ -325,7 +329,7 @@ img {
 .phone-gate__btn {
   padding: 14px 24px;
   background: var(--lavender);
-  color: var(--text);
+  color: var(--text-on-accent);
   border: none;
   border-radius: var(--radius-pill);
   font-size: 1rem;
@@ -454,7 +458,7 @@ img {
 
 .landing__btn--primary {
   background: var(--lavender);
-  color: var(--text);
+  color: var(--text-on-accent);
 }
 
 .landing__btn--primary:hover {
@@ -468,7 +472,7 @@ img {
 }
 
 .landing__btn--secondary:hover {
-  background: #fafafa;
+  background: rgba(212, 220, 205, 0.12);
   border-color: var(--lavender-deep);
 }
 
@@ -509,7 +513,7 @@ img {
   align-items: center;
   gap: 6px;
   padding: 10px 18px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--bg-card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   color: var(--text);
@@ -517,13 +521,13 @@ img {
   font-weight: 600;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow);
   transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
 .page__back:hover {
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  background: rgba(42, 43, 42, 0.95);
+  box-shadow: var(--shadow-hover);
   transform: translateY(-1px);
 }
 
@@ -565,6 +569,27 @@ img {
   margin: 8px 0 24px 0;
 }
 
+.gallery-select-all-wrap {
+  margin-bottom: 24px;
+}
+
+.gallery-select-all-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--lavender-deep);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+
+.gallery-select-all-btn:hover {
+  color: var(--text);
+}
+
 .gallery-header {
   position: -webkit-sticky;
   position: sticky;
@@ -573,12 +598,11 @@ img {
   width: 100%;
   padding-top: max(14px, env(safe-area-inset-top));
   padding-bottom: 14px;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--header-divider);
 }
 
-/* Extend header background into status bar / safe area so no grey strip shows */
+/* Extend header background into status bar / safe area so no strip shows */
 .gallery-header::before {
   content: "";
   position: absolute;
@@ -586,7 +610,7 @@ img {
   left: 0;
   right: 0;
   height: env(safe-area-inset-top, 0px);
-  background: var(--bg-card);
+  background: var(--header-bg);
   z-index: -1;
 }
 
@@ -725,13 +749,13 @@ img {
 
 .nav-drawer__link--active {
   background: var(--lavender);
-  color: var(--text);
+  color: var(--text-on-accent);
   font-weight: 700;
 }
 
 .nav-drawer__link--active:hover {
   background: var(--lavender-hover);
-  color: var(--text);
+  color: var(--text-on-accent);
 }
 
 .page__title {
@@ -873,7 +897,7 @@ img {
   width: 100%;
   padding: 18px 24px;
   background: var(--lavender);
-  color: var(--text);
+  color: var(--text-on-accent);
   border: none;
   border-radius: var(--radius-pill);
   font-size: 1.0625rem;
@@ -996,7 +1020,7 @@ img {
 .upload-message__retry {
   padding: 8px 16px;
   background: var(--lavender);
-  color: var(--text);
+  color: var(--text-on-accent);
   border: none;
   border-radius: var(--radius-pill);
   font-size: 0.9375rem;
@@ -1070,7 +1094,7 @@ img {
 
 .upload-done__link--primary {
   background: var(--lavender);
-  color: var(--text);
+  color: var(--text-on-accent);
 }
 
 .upload-done__link--primary:hover {
@@ -1132,9 +1156,26 @@ img {
   aspect-ratio: 1;
 }
 
-/* Selected: more spacing so selection is clear, rounded corners, light grey background */
+.gallery-card__processing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--bg);
+  color: var(--text-secondary);
+}
+
+.gallery-card__processing-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Selected: more spacing so selection is clear, rounded corners */
 .gallery-card--selected .gallery-card__img-wrap {
-  background: #e8e8e8;
+  background: rgba(212, 220, 205, 0.12);
   padding: 5%;
   box-sizing: border-box;
 }
@@ -1198,7 +1239,7 @@ img {
 
 .gallery-tabs__tab--active {
   background: var(--lavender);
-  color: var(--text);
+  color: var(--text-on-accent);
   border-color: var(--lavender-deep);
 }
 
@@ -1241,6 +1282,18 @@ img {
   border-color: #1557b0;
 }
 
+/* Already downloaded (or uploaded by user) – green check */
+.gallery-card__check--downloaded {
+  background: #1a7f37;
+  border-color: #1a7f37;
+  color: #fff;
+}
+
+.gallery-card__check--downloaded:hover {
+  background: #166534;
+  border-color: #166534;
+}
+
 @media (max-width: 768px) {
   .gallery-card__check {
     width: 17px;
@@ -1263,16 +1316,16 @@ img {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--bg-card);
   border-radius: 28px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-hover);
   border: 1px solid var(--border);
 }
 
 .gallery-float-download__btn {
   padding: 12px 24px;
   background: var(--lavender);
-  color: var(--text);
+  color: var(--text-on-accent);
   border: none;
   border-radius: var(--radius-pill);
   font-size: 0.9375rem;
@@ -1346,7 +1399,7 @@ img {
 
 .gallery-float-download__dismiss {
   padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.2);
   color: #fff;
   border: none;
   border-radius: var(--radius-sm);
@@ -1356,7 +1409,7 @@ img {
 }
 
 .gallery-float-download__dismiss:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Preview modal – full image, download, delete (if own) */
@@ -1465,16 +1518,16 @@ img {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--bg-card);
   border-radius: 28px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-hover);
   border: 1px solid var(--border);
 }
 
 .gallery-preview-actions .gallery-preview-btn {
   padding: 12px 24px;
   background: var(--lavender);
-  color: var(--text);
+  color: var(--text-on-accent);
   border: none;
   border-radius: var(--radius-pill);
   font-size: 0.9375rem;
@@ -1652,7 +1705,7 @@ img {
 .gallery-load-more-btn {
   padding: 16px 32px;
   background: var(--lavender);
-  color: var(--text);
+  color: var(--text-on-accent);
   border: none;
   border-radius: var(--radius-pill);
   font-size: 1rem;

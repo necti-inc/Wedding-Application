@@ -25,6 +25,16 @@ const DELETE_PHOTO_URL =
   process.env.NEXT_PUBLIC_DELETE_PHOTO_URL ||
   "https://us-central1-wedding-app-12da5.cloudfunctions.net/deletePhoto";
 
+/** URL of the getDownloaded Cloud Function. */
+const GET_DOWNLOADED_URL =
+  process.env.NEXT_PUBLIC_GET_DOWNLOADED_URL ||
+  "https://us-central1-wedding-app-12da5.cloudfunctions.net/getDownloaded";
+
+/** URL of the addDownloaded Cloud Function. */
+const ADD_DOWNLOADED_URL =
+  process.env.NEXT_PUBLIC_ADD_DOWNLOADED_URL ||
+  "https://us-central1-wedding-app-12da5.cloudfunctions.net/addDownloaded";
+
 export async function fetchListPhotos() {
   const res = await fetch(LIST_PHOTOS_URL);
   if (!res.ok) throw new Error("Failed to load photos");
@@ -43,4 +53,30 @@ export async function deletePhoto(photoId, phoneNumber) {
     throw new Error(data.error || "Failed to delete photo");
   }
   return res.json();
+}
+
+/** Fetch the list of photo IDs the user has already downloaded (or uploaded). */
+export async function fetchDownloaded(phoneNumber) {
+  if (!phoneNumber || !phoneNumber.trim()) return [];
+  const params = new URLSearchParams({ phone: phoneNumber.trim() });
+  const res = await fetch(`${GET_DOWNLOADED_URL}?${params}`);
+  if (!res.ok) throw new Error("Failed to load downloaded list");
+  const data = await res.json();
+  return Array.isArray(data.photoIds) ? data.photoIds : [];
+}
+
+/** Add photo IDs to the user's "downloaded" list so they show a green check. */
+export async function addDownloaded(phoneNumber, photoIds) {
+  if (!phoneNumber || !phoneNumber.trim() || !Array.isArray(photoIds) || photoIds.length === 0) {
+    return;
+  }
+  const res = await fetch(ADD_DOWNLOADED_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phoneNumber: phoneNumber.trim(), photoIds }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to save downloaded list");
+  }
 }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import JSZip from "jszip";
-import { fetchListPhotos, deletePhoto } from "@/lib/firebase";
+import { fetchListPhotos, deletePhoto, fetchDownloaded, addDownloaded } from "@/lib/firebase";
 import { getSessionPhone, isOwner } from "@/lib/session";
 import PhoneGate from "@/components/PhoneGate";
 
@@ -168,7 +168,9 @@ export default function GalleryPage() {
   const [downloadError, setDownloadError] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [shareReadyFiles, setShareReadyFiles] = useState(null);
+  const [shareReadyPhotoIds, setShareReadyPhotoIds] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [downloadedIds, setDownloadedIds] = useState(() => new Set());
   const successTimeoutRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
@@ -225,6 +227,35 @@ export default function GalleryPage() {
     loadPhotos();
   }, [loadPhotos]);
 
+  const hasProcessingPhotos = useMemo(
+    () => photos.some((p) => p.processing === true),
+    [photos]
+  );
+
+  useEffect(() => {
+    if (!hasProcessingPhotos) return;
+    const POLL_INTERVAL_MS = 2500;
+    const POLL_TIMEOUT_MS = 90000;
+    const startedAt = Date.now();
+    const intervalId = setInterval(() => {
+      if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+        clearInterval(intervalId);
+        return;
+      }
+      fetchListPhotos()
+        .then((list) => setPhotos(list))
+        .catch(() => {});
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(intervalId);
+  }, [hasProcessingPhotos]);
+
+  useEffect(() => {
+    if (!phone) return;
+    fetchDownloaded(phone)
+      .then((ids) => setDownloadedIds(new Set(ids)))
+      .catch(() => {});
+  }, [phone]);
+
   const filteredPhotos = useMemo(
     () => (tab === "mine" && phone ? photos.filter((p) => isOwner(p, phone)) : photos),
     [photos, tab, phone]
@@ -264,7 +295,7 @@ export default function GalleryPage() {
   /** Delete all selected photos that the user owns (floating bar red button). */
   const deleteSelectedOwn = useCallback(async () => {
     if (!phone || downloading) return;
-    const selected = visiblePhotos.filter((p) => selectedIds.has(p.id) && isOwner(p, phone));
+    const selected = filteredPhotos.filter((p) => selectedIds.has(p.id) && isOwner(p, phone));
     if (selected.length === 0) return;
     setDownloadError(null);
     setDownloading(true);
@@ -286,9 +317,16 @@ export default function GalleryPage() {
   }, [phone, visiblePhotos, selectedIds, downloading, showSuccess]);
 
   const selectedOwnCount = useMemo(
-    () => visiblePhotos.filter((p) => selectedIds.has(p.id) && isOwner(p, phone)).length,
-    [visiblePhotos, selectedIds, phone]
+    () => filteredPhotos.filter((p) => selectedIds.has(p.id) && isOwner(p, phone)).length,
+    [filteredPhotos, selectedIds, phone]
   );
+
+  /** Mark photo(s) as downloaded in backend and local state. */
+  const markAsDownloaded = useCallback((photoIdsToAdd) => {
+    if (!phone || !photoIdsToAdd.length) return;
+    setDownloadedIds((prev) => new Set([...prev, ...photoIdsToAdd]));
+    addDownloaded(phone, photoIdsToAdd).catch(() => {});
+  }, [phone]);
 
   /** Single photo: on mobile use Share API; on desktop blob download. Fetch via proxy to avoid CORS. */
   const downloadPhoto = useCallback(async (photo) => {
@@ -305,6 +343,7 @@ export default function GalleryPage() {
         if (navigator.canShare && !navigator.canShare({ files })) throw new Error("Share not supported");
         await navigator.share({ files, title: "Wedding photo" });
         showSuccess("1 photo saved to your photos");
+        markAsDownloaded([photo.id]);
         return;
       }
       const url = URL.createObjectURL(blob);
@@ -314,12 +353,13 @@ export default function GalleryPage() {
       link.click();
       URL.revokeObjectURL(url);
       showSuccess("Photo downloaded");
+      markAsDownloaded([photo.id]);
     } catch {
       window.open(photo.fullUrl, "_blank");
     } finally {
       setDownloadingPhotoId(null);
     }
-  }, [isMobile, showSuccess, downloadingPhotoId]);
+  }, [isMobile, showSuccess, downloadingPhotoId, markAsDownloaded]);
 
   const toggleSelect = useCallback((photoId) => {
     setSelectedIds((prev) => {
@@ -359,28 +399,32 @@ export default function GalleryPage() {
   const openSavePhotosSheet = useCallback(async () => {
     if (!shareReadyFiles?.length) return;
     const count = shareReadyFiles.length;
+    const idsToMark = shareReadyPhotoIds || [];
     setDownloadError(null);
     try {
       const ok = await openShareSheet(shareReadyFiles);
       if (ok) {
         setShareReadyFiles(null);
+        setShareReadyPhotoIds(null);
         showSuccess(
           count === 1
             ? "1 photo saved to your photos"
             : `${count} photos saved to your photos`
         );
+        markAsDownloaded(idsToMark);
       }
     } catch (err) {
       setShareReadyFiles(null);
+      setShareReadyPhotoIds(null);
       if (err?.name !== "AbortError") {
         setDownloadError("Save was cancelled or couldn’t open. Try again.");
       }
     }
-  }, [shareReadyFiles, showSuccess]);
+  }, [shareReadyFiles, shareReadyPhotoIds, showSuccess, markAsDownloaded]);
 
   /** Save/download selected. On mobile: first tap = fetch files; then button becomes "Tap to save" and second tap opens share sheet. */
   const downloadSelected = useCallback(async () => {
-    const selected = visiblePhotos.filter((p) => selectedIds.has(p.id));
+    const selected = filteredPhotos.filter((p) => selectedIds.has(p.id));
     if (selected.length === 0) return;
     setDownloadError(null);
     setDownloading(true);
@@ -403,6 +447,7 @@ export default function GalleryPage() {
 
       if (canShare) {
         setShareReadyFiles(files);
+        setShareReadyPhotoIds(selected.map((p) => p.id));
         setSelectedIds(new Set());
         setDownloading(false);
         return;
@@ -423,6 +468,7 @@ export default function GalleryPage() {
       showSuccess(
         count === 1 ? "1 photo downloaded" : `${count} photos downloaded`
       );
+      markAsDownloaded(selected.map((p) => p.id));
     } catch (err) {
       const msg = err.message || "";
       setDownloadError(
@@ -433,10 +479,30 @@ export default function GalleryPage() {
     } finally {
       setDownloading(false);
     }
-  }, [visiblePhotos, selectedIds, isMobile, showSuccess]);
+  }, [filteredPhotos, selectedIds, isMobile, showSuccess, markAsDownloaded]);
 
   const selectedCount = selectedIds.size;
   const myCount = phone ? photos.filter((p) => isOwner(p, phone)).length : 0;
+
+  const selectablePhotos = useMemo(
+    () => filteredPhotos.filter((p) => !p.processing),
+    [filteredPhotos]
+  );
+  const allSelectableSelected = selectablePhotos.length > 0 && selectablePhotos.every((p) => selectedIds.has(p.id));
+
+  const handleSelectAll = useCallback(() => {
+    if (allSelectableSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectablePhotos.map((p) => p.id)));
+    }
+  }, [allSelectableSelected, selectablePhotos]);
+
+  /** Photo counts as "downloaded" if user has it in their list or they uploaded it. */
+  const isDownloaded = useCallback(
+    (photo) => downloadedIds.has(photo.id) || isOwner(photo, phone),
+    [downloadedIds, phone]
+  );
 
   if (phone === null) {
     return (
@@ -543,6 +609,16 @@ export default function GalleryPage() {
             <p className="gallery-page__count">
               {photos.length} photo{photos.length === 1 ? "" : "s"} — browse and download.
             </p>
+            <div className="gallery-select-all-wrap">
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="gallery-select-all-btn"
+                aria-label={allSelectableSelected ? "Deselect all photos" : `Select all ${selectablePhotos.length} photos`}
+              >
+                {allSelectableSelected ? "Deselect all" : `Select all (${selectablePhotos.length})`}
+              </button>
+            </div>
           </>
         )}
 
@@ -590,6 +666,7 @@ export default function GalleryPage() {
                   <div
                     className="gallery-card__img-wrap"
                     onClick={() => {
+                      if (photo.processing) return;
                       if (longPressTriggeredRef.current) {
                         longPressTriggeredRef.current = false;
                         return;
@@ -609,6 +686,7 @@ export default function GalleryPage() {
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
+                      if (photo.processing) return;
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         if (selectedIds.size > 0) {
@@ -619,31 +697,40 @@ export default function GalleryPage() {
                         }
                       }
                     }}
-                    aria-label={selectedIds.size > 0 ? (selectedIds.has(photo.id) ? "Deselect photo" : "Select photo") : "View photo (long-press to select)"}
+                    aria-label={photo.processing ? "Photo processing" : selectedIds.size > 0 ? (selectedIds.has(photo.id) ? "Deselect photo" : "Select photo") : "View photo (long-press to select)"}
                   >
                     <div className="gallery-card__img-inner">
-                      <Image
-                        src={getImageFetchUrl(photo.mediumUrl || photo.fullUrl)}
-                        alt={photo.fileName || "Wedding photo"}
-                        fill
-                        sizes="(max-width: 768px) 25vw, (max-width: 1200px) 25vw, 200px"
-                        className="gallery-card__img"
-                        unoptimized
-                      />
+                      {photo.processing ? (
+                        <div className="gallery-card__processing" aria-hidden>
+                          <span className="loading-spinner loading-spinner--sm" />
+                          <span className="gallery-card__processing-text">Processing…</span>
+                        </div>
+                      ) : (
+                        <Image
+                          src={getImageFetchUrl(photo.mediumUrl || photo.fullUrl)}
+                          alt={photo.fileName || "Wedding photo"}
+                          fill
+                          sizes="(max-width: 768px) 25vw, (max-width: 1200px) 25vw, 200px"
+                          className="gallery-card__img"
+                          unoptimized
+                        />
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        toggleSelect(photo.id);
-                      }}
-                      className={`gallery-card__check ${selectedIds.has(photo.id) ? "gallery-card__check--on" : ""}`}
-                      aria-label={selectedIds.has(photo.id) ? "Deselect photo" : "Select photo"}
-                      title={selectedIds.has(photo.id) ? "Deselect" : "Select to download with others"}
-                    >
-                      {selectedIds.has(photo.id) ? "✓" : ""}
-                    </button>
+                    {!photo.processing && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          toggleSelect(photo.id);
+                        }}
+                        className={`gallery-card__check ${isDownloaded(photo) ? "gallery-card__check--downloaded" : selectedIds.has(photo.id) ? "gallery-card__check--on" : ""}`}
+                        aria-label={isDownloaded(photo) ? "Already downloaded" : selectedIds.has(photo.id) ? "Deselect photo" : "Select photo"}
+                        title={isDownloaded(photo) ? "Already in your downloads" : selectedIds.has(photo.id) ? "Deselect" : "Select to download with others"}
+                      >
+                        {(isDownloaded(photo) || selectedIds.has(photo.id)) ? "✓" : ""}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
