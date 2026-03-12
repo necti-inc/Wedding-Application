@@ -605,6 +605,7 @@ export default function GalleryPage() {
                     onPointerUp={handleCardPointerUp}
                     onPointerLeave={handleCardPointerLeave}
                     onPointerCancel={handleCardPointerUp}
+                    onContextMenu={(e) => e.preventDefault()}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
